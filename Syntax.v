@@ -1,7 +1,6 @@
 Require Import DbLib.DeBruijn.
 Require Import DbLib.Environments.
 Require Import DbLib.DblibTactics.
-Require Import PartialMap.
 Require Import Util.
 
 (* We use natural numbers as De Bruijn indices to denote term and location variables. *)
@@ -131,6 +130,7 @@ Qed.
 (* END DbLib definitions *)
 
 (* Note: All terms stored in contexts are closed. *)
+(* FIXME: Could use another environment here. *)
 Definition store : Type :=
   loc -> option term.
 
@@ -173,9 +173,8 @@ Inductive step : store -> term -> store -> term -> Prop :=
 Hint Constructors step.
 
 (* Typing judgements *)
-Definition loc_ctxt := PartialMap.partial_map unit.
-Definition ty_ctxt := PartialMap.partial_map ty.
-
+Definition loc_ctxt := env unit.
+Definition ty_ctxt := env ty.
 
 Reserved Notation "LC ';' VC '|-' t '~:' T" (at level 40).
 
@@ -184,15 +183,14 @@ Reserved Notation "LC ';' VC '|-' t '~:' T" (at level 40).
 (* Adapted from de Vries *)
 Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
   | split_empty : context_split empty empty empty
-  (* Might need to check that x not in E *)
   | split_left : forall E E1 E2 x t,
-      E x = None ->
+      lookup x E = None ->
       context_split E E1 E2 ->
-      context_split (extend E x t) (extend E1 x t) E2
+      context_split (insert x t E) (insert x t E1) E2
   | split_right : forall E E1 E2 x t,
-      E x = None ->
+      lookup x E = None ->
       context_split E E1 E2 ->
-      context_split (extend E x t) E1 (extend E2 x t)
+      context_split (insert x t E) E1 (insert x t E2)
 .
 
 Hint Constructors context_split.
@@ -201,19 +199,23 @@ Lemma empty_context : forall E1 E2,
   context_split empty E1 E2 -> E1 = empty /\ E2 = empty.
 Proof.
   intros E1 E2 H.
+  admit.
+  (*
   inversion H.
   (* Split empty *)
   auto.
   (* Split left *)
   unfold not in H0. apply extend_neq_empty in H0. inversion H0.
   admit.
+  *)
 Qed.
 
 Lemma split_complete : forall E E1 E2 x t,
   context_split E E1 E2 ->
-  E x = Some t ->
-  (E1 x = Some t) \/ (E2 x = Some t).
+  lookup x E = Some t ->
+  (lookup x E1 = Some t) \/ (lookup x E2 = Some t).
 Proof.
+  (*
   intros.
   induction H.
   (* Case split_empty *)
@@ -239,6 +241,8 @@ Proof.
     (* Not equal *)
     rewrite extend_neq in H0.
     rewrite extend_neq; auto. auto.
+  *)
+  admit.
 Qed.
 
 Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
@@ -249,11 +253,10 @@ Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
   | HasTyFalse : forall LC VC,
       LC; VC |- TFalse ~: TyBool
   | HasTyVar : forall LC VC x t,
-      VC x = Some t ->
+      lookup x VC = Some t ->
       LC; VC |- TVar x ~: t
-  (* FIXME: Shifting...? *)
   | HasTyAbs : forall LC VC e t1 t2,
-      LC; (extend VC 0 t1) |- e ~: t2 ->
+      LC; (insert 0 t1 VC) |- e ~: t2 ->
       LC; VC |- TAbs t1 e ~: TyFun t1 t2
   | HasTyApp : forall LC E E1 E2 e1 e2 t1 t2,
       context_split E E1 E2 ->
@@ -295,7 +298,7 @@ Proof with eauto.
       destruct e1; try (solve by inversion).
       (* Var case is impossible *)
       inversion H0; subst.
-      solve by inversion.
+      apply lookup_empty_Some in H5. solve by inversion.
       (* Beta reduction! *)
       exists s.
       exists (subst e2 0 e1)...
