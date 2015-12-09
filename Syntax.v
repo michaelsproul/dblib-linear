@@ -303,3 +303,54 @@ Proof with eauto.
       exists s.
       exists (subst e2 0 e1)...
 Qed.
+
+Lemma weakening: forall L E e t,
+  L; E |- e ~: t ->
+  forall x u E', insert x u E = E' ->
+  L; E' |- (shift x e) ~: t.
+Proof.
+  admit.
+Qed.
+
+Lemma subst_preserves_typing : forall v x e e' t,
+  subst v x e = e' ->
+  empty; empty |- e ~: t ->
+  empty; empty |- e' ~: t.
+Proof.
+Abort.
+
+Lemma substitution: forall L E x e1 e2 t1 t2,
+  L; (insert x t1 E) |- e2 ~: t2 ->
+  L; E |- e1 ~: t1 ->
+  L; E |- (subst e1 x e2) ~: t2.
+Proof.
+  intros L E x e1 e2 t1 t2 WT2 WT1.
+  admit.
+Qed.
+
+(* Preservation *)
+Theorem preservation : forall e e' s s' t,
+  empty; empty |- e ~: t ->
+  step s e s' e' ->
+  empty; empty |- e' ~: t.
+Proof with eauto.
+  intros e e' s s' t WT ST.
+  generalize dependent t.
+  induction ST.
+  Case "Beta reduction".
+    intros.
+    inversion WT; subst.
+    apply empty_context in H3. destruct H3. subst. (* TACME *)
+    inversion H6; subst.
+    eauto using substitution.
+  Case "App1 stepping".
+    intros.
+    inversion WT.
+    apply empty_context in H1. destruct H1. subst. (* This is a tactic of sorts *)
+    eauto.
+  Case "App2 stepping".
+    intros.
+    inversion WT.
+    apply empty_context in H2. destruct H2. subst. (* TACME *)
+    eauto.
+Qed.
