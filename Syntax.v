@@ -1,3 +1,4 @@
+Require Export Coq.Program.Equality.
 Require Import DbLib.DeBruijn.
 Require Import DbLib.Environments.
 Require Import DbLib.DblibTactics.
@@ -197,17 +198,11 @@ Hint Constructors context_split.
 
 Lemma empty_context : forall E1 E2,
   context_split empty E1 E2 -> E1 = empty /\ E2 = empty.
-Proof.
+Proof with eauto.
   intros E1 E2 H.
-  admit.
-  (*
-  inversion H.
-  (* Split empty *)
-  auto.
-  (* Split left *)
-  unfold not in H0. apply extend_neq_empty in H0. inversion H0.
-  admit.
-  *)
+  inversion H...
+  assert False; eauto using empty_eq_insert; solve by inversion.
+  assert False; eauto using empty_eq_insert; solve by inversion.
 Qed.
 
 Lemma split_complete : forall E E1 E2 x t,
@@ -319,13 +314,51 @@ Lemma subst_preserves_typing : forall v x e e' t,
 Proof.
 Abort.
 
-Lemma substitution: forall L E x e1 e2 t1 t2,
+Lemma substitution: forall L E x e2 t1 t2,
   L; (insert x t1 E) |- e2 ~: t2 ->
-  L; E |- e1 ~: t1 ->
+  forall e1, L; E |- e1 ~: t1 ->
   L; E |- (subst e1 x e2) ~: t2.
 Proof.
-  intros L E x e1 e2 t1 t2 WT2 WT1.
-  admit.
+Abort.
+
+Lemma substitution: forall x e2 t1 t2,
+  empty; (insert x t1 empty) |- e2 ~: t2 ->
+  forall e1, empty; empty |- e1 ~: t1 ->
+  empty; empty |- (subst e1 x e2) ~: t2.
+Proof.
+  intros x e2 t1 t2 WT2 e1 WT1.
+  (* We seem to require dependent induction here to avoid getting useless contexts *)
+  dependent induction WT2; simpl_subst_goal; eauto.
+  Case "TVar".
+    unfold subst_idx.
+    dblib_by_cases; lookup_insert_all; auto.
+  Case "TAbs".
+    intros.
+    apply HasTyAbs.
+    assert (closed 0 e1) as E1Closed. admit.
+    rewrite E1Closed.
+    Check lift_subst_2.
+    apply weakening.
+
+    unfold closed in H. subst.
+    assert (empty; insert 0 t0 empty |- subst (shift 0 e1) (1 + x) (shift 0 e) ~: t2).
+    Check closed.
+    Check lift_subst_1.
+
+    assert (empty; insert 0 t0 empty |- subst (lift 1 0 e) (1 + x) (lift 1 0 e) ~: t2).
+    rewrite <- lift_subst_1.
+    apply weakening with (E := empty) (u := t0).
+    eauto with insert_insert.
+    admit.
+    reflexivity.
+    SearchPattern (0 <= _).
+    auto using le_0_n.
+    (* FIXME: This appears to require e to be closed (shift 0 e) = e *)
+    admit.
+  Case "TApp".
+    intros.
+    apply HasTyApp with (E1 := E1) (E2 := E2) (t1 := t1).
+    admit. admit. admit.
 Qed.
 
 (* Preservation *)
