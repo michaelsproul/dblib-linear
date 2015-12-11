@@ -301,10 +301,33 @@ Qed.
 
 Lemma weakening: forall L E e t,
   L; E |- e ~: t ->
-  forall x u E', insert x u E = E' ->
+  forall x u E',
+  lookup x E = None ->
+  insert x u E = E' ->
   L; E' |- (shift x e) ~: t.
 Proof.
-  admit.
+  intros L E e t WT.
+  induction WT; auto.
+  (* FIXME: this case is overly verbose *)
+  Case "Var".
+    intros y u E' Ins Mis.
+    subst.
+    assert (TVar x = var x) as V; auto. rewrite V.
+    rewrite lift_var. simpl.
+    apply HasTyVar.
+    lookup_insert_all; auto.
+  Case "Abs".
+    intros. simpl_lift_goal. subst. econstructor. eauto with insert_insert.
+  Case "App".
+    intros. simpl_lift_goal. subst.
+    Check HasTyApp.
+    (* We need to split the context on the left and the right to use the IH. Shit. *)
+    apply HasTyApp with (E1 := insert x u E1) (E2 := E2) (t1 := t1).
+    apply split_left.
+    assumption.
+    assumption.
+    (* D'oh! Weakening is FALSE because of linearity! *)
+    admit. admit.
 Qed.
 
 Lemma subst_preserves_typing : forall v x e e' t,
@@ -321,6 +344,7 @@ Lemma substitution: forall L E x e2 t1 t2,
 Proof.
 Abort.
 
+(* I think this is still true sans weakening. *)
 Lemma substitution: forall x e2 t1 t2,
   empty; (insert x t1 empty) |- e2 ~: t2 ->
   forall e1, empty; empty |- e1 ~: t1 ->
