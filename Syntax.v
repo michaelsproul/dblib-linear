@@ -205,7 +205,7 @@ Proof with eauto.
   assert False; eauto using empty_eq_insert; solve by inversion.
 Qed.
 
-Lemma split_complete : forall E E1 E2 x t,
+Lemma split_complete_forward : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E = Some t ->
   (lookup x E1 = Some t) \/ (lookup x E2 = Some t).
@@ -240,6 +240,33 @@ Proof.
   admit.
 Qed.
 
+Lemma split_complete_E1 : forall E E1 E2 x t,
+  context_split E E1 E2 ->
+  lookup x E1 = Some t ->
+  lookup x E = Some t.
+admit. Qed.
+
+(* This is probably true *)
+Lemma split_complete_E2 : forall E E1 E2 x t,
+  context_split E E1 E2 ->
+  lookup x E2 = Some t ->
+  lookup x E = Some t.
+admit. Qed.
+
+Lemma split_single_left : forall E E1,
+  context_split E E1 empty ->
+  E = E1.
+Proof.
+  admit.
+Qed.
+
+Lemma split_single_right : forall E E2,
+  context_split E empty E2 ->
+  E = E2.
+Proof.
+  admit.
+Qed.
+
 Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
   | HasTyUnit : forall LC VC,
       LC; VC |- TUnit ~: TyUnit
@@ -247,9 +274,8 @@ Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
       LC; VC |- TTrue ~: TyBool
   | HasTyFalse : forall LC VC,
       LC; VC |- TFalse ~: TyBool
-  | HasTyVar : forall LC VC x t,
-      lookup x VC = Some t ->
-      LC; VC |- TVar x ~: t
+  | HasTyVar : forall LC x t,
+      LC; insert x t empty |- TVar x ~: t
   | HasTyAbs : forall LC VC e t1 t2,
       LC; (insert 0 t1 VC) |- e ~: t2 ->
       LC; VC |- TAbs t1 e ~: TyFun t1 t2
@@ -293,70 +319,105 @@ Proof with eauto.
       destruct e1; try (solve by inversion).
       (* Var case is impossible *)
       inversion H0; subst.
-      apply lookup_empty_Some in H5. solve by inversion.
+      apply insert_nil in H3. solve by inversion.
       (* Beta reduction! *)
       exists s.
       exists (subst e2 0 e1)...
 Qed.
 
-Lemma weakening: forall L E e t,
-  L; E |- e ~: t ->
-  forall x u E',
-  lookup x E = None ->
-  insert x u E = E' ->
-  L; E' |- (shift x e) ~: t.
-Proof.
-  intros L E e t WT.
-  induction WT; auto.
-  (* FIXME: this case is overly verbose *)
-  Case "Var".
-    intros y u E' Ins Mis.
-    subst.
-    assert (TVar x = var x) as V; auto. rewrite V.
-    rewrite lift_var. simpl.
-    apply HasTyVar.
-    lookup_insert_all; auto.
-  Case "Abs".
-    intros. simpl_lift_goal. subst. econstructor. eauto with insert_insert.
-  Case "App".
-    intros. simpl_lift_goal. subst.
-    Check HasTyApp.
-    (* We need to split the context on the left and the right to use the IH. Shit. *)
-    apply HasTyApp with (E1 := insert x u E1) (E2 := E2) (t1 := t1).
-    apply split_left.
-    assumption.
-    assumption.
-    (* D'oh! Weakening is FALSE because of linearity! *)
-    admit. admit.
+(* Implications of linearity. *)
+(* If we have E |- e : t
+  then each x in E has to appear exactly once in e.
+*)
+
+(* I think this is still true sans weakening. *)
+(* All vars in E are used in e1. *)
+(* e2 contains x: t1, and all the vars from E *)
+(* substituting e1 for x in e2 is well typed under all the vars E *)
+
+Example test:
+  empty; insert 0 (TyFun TyUnit TyBool) empty |-
+    (subst TUnit 1 (TApp (TVar 0) (TVar 1))) ~: TyBool.
+Proof with auto.
+  simpl_subst_goal.
+  apply HasTyApp with (E1 := (insert 0 (TyFun TyUnit TyBool) empty)) (E2 := empty) (t1 := TyUnit)...
 Qed.
 
-Lemma subst_preserves_typing : forall v x e e' t,
-  subst v x e = e' ->
-  empty; empty |- e ~: t ->
-  empty; empty |- e' ~: t.
+Lemma insert_empty : forall x1 x2 (t1 : ty) t2 E,
+  insert x1 t1 empty = insert x2 t2 E ->
+  x1 = x2 /\ t1 = t2 /\ E = empty.
 Proof.
-Abort.
+  intros.
+  assert (lookup x2 (insert x1 t1 empty) = lookup x2 (insert x2 t2 E)).
+  auto using f_equal.
+  destruct (lt_eq_lt_dec x1 x2). destruct s.
+  Case "x1 < x2".
+    lookup_insert_all. rewrite lookup_insert_bingo in H0.
+    assert False. eauto using lookup_empty_Some. solve by inversion. auto.
+  Case "x1 = x2".
+    lookup_insert_all. rewrite lookup_insert_bingo in H0.
+    inversion H0. split; auto. split; auto.
+    (* TODO: Look up some other key *)
+    admit. auto.
+  Case "x2 < x1".
+    lookup_insert_all. rewrite lookup_insert_bingo in H0.
+    assert False. eauto using lookup_empty_Some. solve by inversion. auto.
+Qed.
 
-Lemma substitution: forall L E x e2 t1 t2,
+Lemma substitution: forall L E2 e2 t1 t2 x,
+  L; insert x t1 E2 |- e2 ~: t2 ->
+  forall E E1 e1, L; E1 |- e1 ~: t1 ->
+  context_split E E1 E2 ->
+  L; E |- (subst e1 x e2) ~: t2.
+Proof.
+  intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
+  dependent induction WT2; simpl_subst_goal; eauto.
+  Case "Var".
+    (* WTF hypothesis naming... *)
+    apply insert_empty in x. destruct x as [XEq [TEq E2Eq]].
+    subst. simpl_subst_goal.
+    apply split_single_left in Split. subst; auto.
+  Case "Abs".
+    admit.
+  Case "App".
+    admit.
+Qed.
+
+Lemma substitution_old: forall L E x (*e1*) e2 t1 t2,
   L; (insert x t1 E) |- e2 ~: t2 ->
   forall e1, L; E |- e1 ~: t1 ->
   L; E |- (subst e1 x e2) ~: t2.
 Proof.
-Abort.
-
-(* I think this is still true sans weakening. *)
-Lemma substitution: forall x e2 t1 t2,
-  empty; (insert x t1 empty) |- e2 ~: t2 ->
-  forall e1, empty; empty |- e1 ~: t1 ->
-  empty; empty |- (subst e1 x e2) ~: t2.
-Proof.
-  intros x e2 t1 t2 WT2 e1 WT1.
+  intros L E x e2 t1 t2 WT2.
   (* We seem to require dependent induction here to avoid getting useless contexts *)
-  dependent induction WT2; simpl_subst_goal; eauto.
+  dependent induction WT2; intros e1' WT1; simpl_subst_goal; eauto.
   Case "TVar".
     unfold subst_idx.
     dblib_by_cases; lookup_insert_all; auto.
   Case "TAbs".
+    constructor.
+    apply IHWT2 with (t3 := t1).
+      insert_insert.
+
+      auto.
+      apply blah.
+  Case "TApp".
+
+(* Alternative induction *)
+(* de
+  intros L E x e2. (* t1 t2 WT2 e1 WT1. *)
+  induction e2; simpl_subst_goal. intros t1 t2 WT1 e1 WT2; inversion WT2; eauto; subst.
+  Case "TVar".
+    unfold subst_idx.
+    dblib_by_cases; lookup_insert_all; auto.
+  Case "TAbs".
+    constructor.
+
+  simpl_subst_goal.
+  inversion WT2. auto.
+*)
+(*
+
     intros.
     apply HasTyAbs.
     assert (closed 0 e1) as E1Closed. admit.
@@ -384,6 +445,8 @@ Proof.
     apply HasTyApp with (E1 := E1) (E2 := E2) (t1 := t1).
     admit. admit. admit.
 Qed.
+*)
+Abort.
 
 (* Preservation *)
 Theorem preservation : forall e e' s s' t,
