@@ -364,6 +364,8 @@ Proof.
     assert False. eauto using lookup_empty_Some. solve by inversion. auto.
 Qed.
 
+(* NOTE: Context splitting is completely broken, as inserts perform shifting! *)
+
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
   forall E E1 e1, L; E1 |- e1 ~: t1 ->
@@ -385,7 +387,7 @@ Proof.
     admit. (* Require closed terms for substitution? *)
     auto using split_right.
   Case "App".
-    apply HasTyApp with (t1 := t0) (E1 := E3) (E2 := E2).
+    admit.
 Qed.
 
 Lemma substitution_old: forall L E x (*e1*) e2 t1 t2,
