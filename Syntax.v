@@ -185,11 +185,11 @@ Reserved Notation "LC ';' VC '|-' t '~:' T" (at level 40).
 Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
   | split_empty : context_split empty empty empty
   | split_left : forall E E1 E2 x t,
-      lookup x E = None ->
+      (*lookup x E = None ->*)
       context_split E E1 E2 ->
       context_split (insert x t E) (insert x t E1) E2
   | split_right : forall E E1 E2 x t,
-      lookup x E = None ->
+      (*lookup x E = None ->*)
       context_split E E1 E2 ->
       context_split (insert x t E) E1 (insert x t E2)
 .
@@ -378,9 +378,14 @@ Proof.
     subst. simpl_subst_goal.
     apply split_single_left in Split. subst; auto.
   Case "Abs".
-    admit.
+    constructor.
+    (* XXX: Bug in error reporting - can't specify E0 *)
+    eapply IHWT2 with (t3 := t1) (E1 := E1).
+    insert_insert.
+    admit. (* Require closed terms for substitution? *)
+    auto using split_right.
   Case "App".
-    admit.
+    apply HasTyApp with (t1 := t0) (E1 := E3) (E2 := E2).
 Qed.
 
 Lemma substitution_old: forall L E x (*e1*) e2 t1 t2,
