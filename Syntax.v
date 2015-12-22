@@ -1,3 +1,4 @@
+Require Import Coq.Lists.List.
 Require Export Coq.Program.Equality.
 Require Import DbLib.DeBruijn.
 Require Import DbLib.Environments.
@@ -135,27 +136,6 @@ Qed.
 Definition store : Type :=
   loc -> option term.
 
-(* Evaluation contexts *)
-(* Options:
-     + Write out lifting rules in the small step semantics.
-     + Use a function ala Iron Lambda.
-     + Use an inductive proposition `eval_ctxt term term`.
-     + Normalise to let bindings (more reading required).
-*)
-(* eval_ctxt : term -> term *)
-Inductive eval_ctxt : term -> term -> Prop :=
-  | EId : forall e, eval_ctxt e e
-  (*
-  | ELetUnit : forall E e1 e2,
-      eval_ctxt E e1 ->
-      eval_ctxt (TLetUnit E e2) (TLetUnit e1 e2)
-  | EPair : forall E e1 e2,
-      eval_ctxt E e1 ->
-      eval_ctxt (TPair E e2) (TPair e1 e2)
-  *)
-.
-(* ^ NOT USED *)
-
 (* (sigma, e) -> (sigma', e') *)
 Inductive step : store -> term -> store -> term -> Prop :=
   | StepAppAbs : forall s e e' v t,
@@ -179,30 +159,68 @@ Definition ty_ctxt := env ty.
 
 Reserved Notation "LC ';' VC '|-' t '~:' T" (at level 40).
 
-(* TODO: Work out context splitting. Probably doesn't work well with partial maps... *)
+(* Liam OConnor's approach... seems to require vector environments *)
+(*
+Inductive split_single : option ty -> option ty -> option ty -> Prop :=
+  | split_left : forall v, split_single v v None
+  | split_right : forall v, split_single v None v.
 
-(* Adapted from de Vries *)
 Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
   | split_empty : context_split empty empty empty
-  | split_left : forall E E1 E2 x t,
-      (*lookup x E = None ->*)
+  | split_cons : forall E E1 E2 v v1 v2,
+      split_single v v1 v2 ->
       context_split E E1 E2 ->
-      context_split (insert x t E) (insert x t E1) E2
-  | split_right : forall E E1 E2 x t,
-      (*lookup x E = None ->*)
-      context_split E E1 E2 ->
-      context_split (insert x t E) E1 (insert x t E2)
-.
+      context_split (v :: E) (v1 :: E1) (v2 :: E2).
+*)
+
+(* Computational definition of context splitting. *)
+Inductive selector := Left | Right.
+Definition mask := list selector.
+
+Fixpoint do_context_split (E: ty_ctxt) mask : (ty_ctxt * ty_ctxt) :=
+  match E with
+  | nil => (empty, empty)
+  | cons h t => (
+    match mask with
+    | nil => (empty, empty)
+    | cons sel mask' => (
+      let (left, right) := do_context_split t mask' in
+      match sel with
+      | Left => (cons h left, right)
+      | Right => (left, cons h right)
+      end)
+    end)
+  end.
+
+Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
+  | ContextSplit : forall E E1 E2,
+    (exists sl, do_context_split E sl = (E1, E2) /\ length sl = length E) ->
+    context_split E E1 E2.
 
 Hint Constructors context_split.
+
+Example split_test : context_split (insert 0 TyBool empty) (insert 0 TyBool empty) empty.
+Proof.
+  constructor.
+  exists (cons Left nil).
+  auto.
+Qed.
 
 Lemma empty_context : forall E1 E2,
   context_split empty E1 E2 -> E1 = empty /\ E2 = empty.
 Proof with eauto.
-  intros E1 E2 H.
-  inversion H...
-  assert False; eauto using empty_eq_insert; solve by inversion.
-  assert False; eauto using empty_eq_insert; solve by inversion.
+  intros E1 E2 CSplit.
+  inversion CSplit; subst.
+  destruct H as [sl [Split Len]].
+  simpl in Split.
+  inversion Split...
+Qed.
+
+Lemma zero_length_empty : forall (E : ty_ctxt), length E = 0 -> E = empty.
+Proof.
+  intros E Len.
+  unfold empty.
+  destruct E; [auto | solve by inversion].
 Qed.
 
 Lemma split_complete_forward : forall E E1 E2 x t,
@@ -210,62 +228,49 @@ Lemma split_complete_forward : forall E E1 E2 x t,
   lookup x E = Some t ->
   (lookup x E1 = Some t) \/ (lookup x E2 = Some t).
 Proof.
-  (*
-  intros.
-  induction H.
-  (* Case split_empty *)
-  inversion H0.
-  (* Case split_left *)
-  destruct (eq_nat_dec x x0).
-    (* Equal *)
-    subst x0.
-    left.
-    rewrite extend_eq in H0.
-    inversion H0. subst t0.
-    apply extend_eq.
-    (* Not equal *)
-    rewrite extend_neq in H0.
-    rewrite extend_neq; auto. auto.
-  (* Case split_right *)
-  destruct (eq_nat_dec x x0).
-    subst x0.
-    right.
-    rewrite extend_eq in H0.
-    inversion H0. subst t0.
-    apply extend_eq.
-    (* Not equal *)
-    rewrite extend_neq in H0.
-    rewrite extend_neq; auto. auto.
-  *)
-  admit.
-Qed.
+  intros E E1 E2 x t CSplit Lookup.
+  inversion CSplit; subst.
+  destruct H as [sl [Split Len]].
+  induction sl as [ | s sl'].
+  Case "nil - impossible".
+    assert (E = empty).
+      auto using zero_length_empty.
+    subst.
+    exfalso; eauto using lookup_empty_Some.
+  Case "s :: sl'".
+    simpl in Split.
+    destruct E as [ | t0 E'].
+      solve by inversion.
+    simpl in Split.
+    destruct s.
+    SCase "Left".
+      admit.
+    SCase "Right".
+      admit.
+Abort.
 
 Lemma split_complete_E1 : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E1 = Some t ->
   lookup x E = Some t.
-admit. Qed.
+Abort.
 
 (* This is probably true *)
 Lemma split_complete_E2 : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E2 = Some t ->
   lookup x E = Some t.
-admit. Qed.
+Abort.
 
 Lemma split_single_left : forall E E1,
   context_split E E1 empty ->
   E = E1.
-Proof.
-  admit.
-Qed.
+Abort.
 
 Lemma split_single_right : forall E E2,
   context_split E empty E2 ->
   E = E2.
-Proof.
-  admit.
-Qed.
+Abort.
 
 Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
   | HasTyUnit : forall LC VC,
@@ -288,7 +293,6 @@ Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
 where "LC ';' VC '|-' t '~:' T" := (has_type LC VC t T).
 
 Hint Constructors has_type.
-
 
 
 (* Time to prove progress *)
@@ -325,22 +329,16 @@ Proof with eauto.
       exists (subst e2 0 e1)...
 Qed.
 
-(* Implications of linearity. *)
-(* If we have E |- e : t
-  then each x in E has to appear exactly once in e.
-*)
-
-(* I think this is still true sans weakening. *)
-(* All vars in E are used in e1. *)
-(* e2 contains x: t1, and all the vars from E *)
-(* substituting e1 for x in e2 is well typed under all the vars E *)
-
 Example test:
   empty; insert 0 (TyFun TyUnit TyBool) empty |-
     (subst TUnit 1 (TApp (TVar 0) (TVar 1))) ~: TyBool.
 Proof with auto.
   simpl_subst_goal.
   apply HasTyApp with (E1 := (insert 0 (TyFun TyUnit TyBool) empty)) (E2 := empty) (t1 := TyUnit)...
+  constructor.
+  exists (Left :: nil).
+  rewrite raw_insert_zero.
+  auto.
 Qed.
 
 Lemma insert_empty : forall x1 x2 (t1 : ty) t2 E,
@@ -364,7 +362,7 @@ Proof.
     assert False. eauto using lookup_empty_Some. solve by inversion. auto.
 Qed.
 
-(* NOTE: Context splitting is completely broken, as inserts perform shifting! *)
+(* Works up to here *)
 
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
