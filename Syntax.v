@@ -157,8 +157,6 @@ Hint Constructors step.
 Definition loc_ctxt := env unit.
 Definition ty_ctxt := env ty.
 
-Reserved Notation "LC ';' VC '|-' t '~:' T" (at level 40).
-
 (* Liam OConnor's approach... seems to require vector environments *)
 (*
 Inductive split_single : option ty -> option ty -> option ty -> Prop :=
@@ -175,45 +173,117 @@ Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
 
 (* Computational definition of context splitting. *)
 Inductive selector := Left | Right.
-Definition mask := list selector.
+Definition mask_t := list selector.
 
-Fixpoint do_context_split (E: ty_ctxt) mask : (ty_ctxt * ty_ctxt) :=
-  match E with
-  | nil => (empty, empty)
-  | cons h t => (
-    match mask with
-    | nil => (empty, empty)
-    | cons sel mask' => (
-      let (left, right) := do_context_split t mask' in
-      match sel with
-      | Left => (cons h left, right)
-      | Right => (left, cons h right)
-      end)
-    end)
+(* Apply a mask to create the left split *)
+Fixpoint filter_left (E : ty_ctxt) mask : ty_ctxt :=
+  match E, mask with
+  | e :: E', Left :: mask' => e :: filter_left E' mask'
+  | _ :: E', Right :: mask' => None :: filter_left E' mask'
+  | _, _ => empty
   end.
 
+Fixpoint filter_right (E : ty_ctxt) mask : ty_ctxt :=
+  match E, mask with
+  | _ :: E', Left :: mask' => None :: filter_right E' mask'
+  | e :: E', Right :: mask' => e :: filter_right E' mask'
+  | _, _ => empty
+  end.
+
+(*
+Fixpoint do_context_split (E: ty_ctxt) mask : (ty_ctxt * ty_ctxt) :=
+  match E, mask with
+  | e :: E', sel :: mask' => (
+    let (left, right) := do_context_split E' mask' in
+    match sel with
+    | Left => (e :: left, None :: right)
+    | Right => (None :: left, e :: right)
+    end)
+  | _, _ => (empty, empty)
+  end.
+*)
+
 Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
-  | ContextSplit : forall E E1 E2,
-    (exists sl, do_context_split E sl = (E1, E2) /\ length sl = length E) ->
+  | ContextSplit E E1 E2
+      (ExMask : exists mask,
+        filter_left E mask = E1 /\
+        filter_right E mask = E2 /\
+        length mask = length E) :
     context_split E E1 E2.
 
 Hint Constructors context_split.
 
-Example split_test : context_split (insert 0 TyBool empty) (insert 0 TyBool empty) empty.
-Proof.
+(* Predicate for contexts that states their emptyness (DbLib's definition is too limiting) *)
+Inductive is_empty {A} : env A -> Prop :=
+  | is_empty_nil : is_empty empty
+  | is_empty_cons E (EmptyTail : is_empty E) : is_empty (None :: E).
+
+Hint Constructors is_empty.
+
+Example is_empty_test : is_empty (None :: None :: @empty ty).
+Proof. auto. Qed.
+
+Example split_test : exists E,
+  context_split (insert 0 TyBool empty) (insert 0 TyBool empty) E /\
+  is_empty E.
+Proof with auto.
+  exists (None :: empty).
+  split...
   constructor.
-  exists (cons Left nil).
-  auto.
+  exists (Left :: nil)...
 Qed.
 
-Lemma empty_context : forall E1 E2,
-  context_split empty E1 E2 -> E1 = empty /\ E2 = empty.
+Lemma empty_context : forall E E1 E2,
+  is_empty E ->
+  context_split E E1 E2 ->
+  is_empty E1 /\ is_empty E2.
 Proof with eauto.
-  intros E1 E2 CSplit.
-  inversion CSplit; subst.
-  destruct H as [sl [Split Len]].
-  simpl in Split.
-  inversion Split...
+  intros E E1 E2 Empty CSplit.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction E.
+  Case "nil".
+    intros.
+    inversion CSplit. subst.
+    destruct ExMask as [mask [SplitL [SplitR Len]]].
+    subst...
+  Case "a :: E".
+    intros.
+    inversion Empty. subst.
+    inversion CSplit. subst.
+    destruct ExMask as [mask [SplitL [SplitR Len]]].
+    destruct mask as [| s mask']; try solve by inversion.
+    destruct s; simpl in SplitL; simpl in SplitR.
+    (* FIXME: Deduplicate this. *)
+    SCase "Left".
+      destruct E1 as [| x E1']; try solve by inversion.
+      destruct E2 as [| y E2']; try solve by inversion.
+      inversion SplitL.
+      inversion SplitR.
+      assert (is_empty E1' /\ is_empty E2') as [EmptyE1 EmptyE2].
+      SSCase "Proof of assertion".
+        apply IHE.
+          auto.
+        constructor.
+        exists (mask').
+        auto.
+      subst.
+      split; constructor; eauto.
+    (* FIXME : copy paste *)
+    SCase "Right".
+      destruct E1 as [| x E1']; try solve by inversion.
+      destruct E2 as [| y E2']; try solve by inversion.
+      inversion SplitL.
+      inversion SplitR.
+      assert (is_empty E1' /\ is_empty E2') as [EmptyE1 EmptyE2].
+      SSCase "Proof of assertion".
+        apply IHE.
+          auto.
+        constructor.
+        exists (mask').
+        auto.
+      subst.
+      split; constructor; eauto.
 Qed.
 
 Lemma zero_length_empty : forall (E : ty_ctxt), length E = 0 -> E = empty.
@@ -223,6 +293,7 @@ Proof.
   destruct E; [auto | solve by inversion].
 Qed.
 
+(*
 Lemma split_complete_forward : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E = Some t ->
@@ -248,6 +319,7 @@ Proof.
     SCase "Right".
       admit.
 Abort.
+*)
 
 Lemma split_complete_E1 : forall E E1 E2 x t,
   context_split E E1 E2 ->
@@ -272,62 +344,69 @@ Lemma split_single_right : forall E E2,
   E = E2.
 Abort.
 
-Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
-  | HasTyUnit : forall LC VC,
-      LC; VC |- TUnit ~: TyUnit
-  | HasTyTrue : forall LC VC,
-      LC; VC |- TTrue ~: TyBool
-  | HasTyFalse : forall LC VC,
-      LC; VC |- TFalse ~: TyBool
-  | HasTyVar : forall LC x t,
-      LC; insert x t empty |- TVar x ~: t
-  | HasTyAbs : forall LC VC e t1 t2,
-      LC; (insert 0 t1 VC) |- e ~: t2 ->
-      LC; VC |- TAbs t1 e ~: TyFun t1 t2
-  | HasTyApp : forall LC E E1 E2 e1 e2 t1 t2,
-      context_split E E1 E2 ->
-      LC; E1 |- e1 ~: TyFun t1 t2 ->
-      LC; E2 |- e2 ~: t1 ->
-      LC; E  |- TApp e1 e2 ~: t2
+(* TYPING JUDGEMENT *)
+Reserved Notation "L ';' E '|-' t '~:' T" (at level 40).
 
-where "LC ';' VC '|-' t '~:' T" := (has_type LC VC t T).
+Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
+  | HasTyUnit : forall L E,
+      L; E |- TUnit ~: TyUnit
+  | HasTyTrue : forall L E,
+      L; E |- TTrue ~: TyBool
+  | HasTyFalse : forall L E,
+      L; E |- TFalse ~: TyBool
+  | HasTyVar : forall L x t,
+      L; insert x t empty |- TVar x ~: t
+  | HasTyAbs : forall L E e t1 t2,
+      L; (insert 0 t1 E) |- e ~: t2 ->
+      L; E |- TAbs t1 e ~: TyFun t1 t2
+  | HasTyApp : forall L E E1 E2 e1 e2 t1 t2,
+      context_split E E1 E2 ->
+      L; E1 |- e1 ~: TyFun t1 t2 ->
+      L; E2 |- e2 ~: t1 ->
+      L; E  |- TApp e1 e2 ~: t2
+
+where "L ';' E '|-' t '~:' T" := (has_type L E t T).
 
 Hint Constructors has_type.
 
-
 (* Time to prove progress *)
 Theorem progress : forall L E e s t,
-  (* Hacks to prevent empty from disappearing during induction *)
-  L = empty ->
-  E = empty ->
+  is_empty L ->
+  is_empty E ->
   L; E |- e ~: t ->
   (exists s' e', step s e s' e') \/ value e.
 Proof with eauto.
-  intros L E e s t Ln En H.
-  induction H; auto.
-  (* Application *)
-  (* First, reasoning about the context splitting. We want E1 = E2 = empty. *)
-  subst E. apply empty_context in H. destruct H as [E1empty E2empty].
-  destruct IHhas_type1...
+  intros L E e s t EmptyL EmptyE WT.
+  induction WT; auto.
+  Case "Application".
+  (* First, reasoning about the context splitting. We want E1 and E2 empty. *)
+  assert (is_empty E1 /\ is_empty E2) as [EmptyE1 EmptyE2].
+    eauto using empty_context.
+  destruct IHWT1 as [Step_e1 | Value_e1]...
   (* e1 steps *)
-  Case "e1 steps".
+  SCase "e1 steps".
     (* Proof by StepApp1 (invert stepping of e1) *)
-    inversion H. inversion H2... (* FIXME: tactic here *)
-  Case "e1 is a value".
-    destruct IHhas_type2 as [IH1 | IH2]...
-    SCase "e2 steps".
-      inversion IH1... inversion H2... (* Same tactic needed here *)
-    SCase "e2 is a value".
+    inversion Step_e1. inversion H0... (* FIXME: naming here *)
+  SCase "e1 is a value".
+    destruct IHWT2 as [Step_e2 | Value_e2]...
+    SSCase "e2 steps".
+      inversion Step_e2... inversion H0... (* FIXME: same naming fix needed here *)
+    SSCase "e2 is a value".
       (* Here we use beta reduction, by first showing that e1 must be a lambda expression *)
       left.
       destruct e1; try (solve by inversion).
-      (* Var case is impossible *)
-      inversion H0; subst.
-      apply insert_nil in H3. solve by inversion.
+      SSSCase "e1 is a TVar".
+        (* Var case is impossible *)
+        inversion WT1; subst.
+        (* FIXME: need a lemma about emptyness of inserts *)
+        admit.
+        (* apply insert_nil in H3. solve by inversion. *)
       (* Beta reduction! *)
       exists s.
       exists (subst e2 0 e1)...
 Qed.
+
+(* Works up to here *)
 
 Example test:
   empty; insert 0 (TyFun TyUnit TyBool) empty |-
@@ -362,7 +441,7 @@ Proof.
     assert False. eauto using lookup_empty_Some. solve by inversion. auto.
 Qed.
 
-(* Works up to here *)
+
 
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
