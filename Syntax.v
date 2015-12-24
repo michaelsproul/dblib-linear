@@ -233,6 +233,27 @@ Proof with auto.
   exists (Left :: nil)...
 Qed.
 
+Lemma insert_is_empty : forall x (t : ty) E,
+  E = insert x t empty ->
+  is_empty E -> False.
+Proof with eauto.
+  intros x t E Eq Empty.
+  generalize dependent x.
+  generalize dependent t.
+  induction E.
+  Case "E = []". eauto using insert_nil.
+  Case "E = a :: E".
+    intros.
+    destruct x as [|x'].
+    SCase "x = 0".
+      erewrite raw_insert_zero in Eq.
+      solve by inversion 2.
+    SCase "x = S x'".
+      rewrite raw_insert_successor in Eq.
+      inversion Eq; subst.
+      inversion Empty...
+Qed.
+
 Lemma empty_context : forall E E1 E2,
   is_empty E ->
   context_split E E1 E2 ->
@@ -398,9 +419,7 @@ Proof with eauto.
       SSSCase "e1 is a TVar".
         (* Var case is impossible *)
         inversion WT1; subst.
-        (* FIXME: need a lemma about emptyness of inserts *)
-        admit.
-        (* apply insert_nil in H3. solve by inversion. *)
+        exfalso. eauto using insert_is_empty.
       (* Beta reduction! *)
       exists s.
       exists (subst e2 0 e1)...
