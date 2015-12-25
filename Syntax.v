@@ -138,16 +138,16 @@ Definition store : Type :=
 
 (* (sigma, e) -> (sigma', e') *)
 Inductive step : store -> term -> store -> term -> Prop :=
-  | StepAppAbs : forall s e e' v t,
-      value v ->
-      subst v 0 e = e' ->
+  | StepAppAbs s e e' v t
+      (BetaPreVal : value v)
+      (BetaPreSubst : subst v 0 e = e') :
       step s (TApp (TAbs t e) v) s e'
-  | StepApp1 : forall s s' e1 e1' e2,
-      step s e1 s' e1' ->
+  | StepApp1 s s' e1 e1' e2
+      (App1Step : step s e1 s' e1') :
       step s (TApp e1 e2) s' (TApp e1' e2)
-  | StepApp2 : forall s s' v1 e2 e2',
-      value v1 ->
-      step s e2 s' e2' ->
+  | StepApp2 s s' v1 e2 e2'
+      (App2Val : value v1)
+      (App2Step : step s e2 s' e2') :
       step s (TApp v1 e2) s' (TApp v1 e2')
 .
 
@@ -233,13 +233,56 @@ Proof with auto.
   exists (Left :: nil)...
 Qed.
 
-Lemma insert_is_empty : forall x (t : ty) E,
-  E = insert x t empty ->
+(* ----------------------- *)
+(* Lemma's about emptyness *)
+(* ----------------------- *)
+
+Lemma tail_empty_is_empty : forall {A} (E : env A),
+  is_empty E ->
+  is_empty (tl E).
+Proof.
+  intros A E Empty.
+  destruct E; auto.
+  inversion Empty; subst; auto.
+Qed.
+
+Hint Resolve tail_empty_is_empty.
+
+Check lookup_empty_None.
+Lemma lookup_empty_None' : forall {A} x (E : env A),
+  is_empty E ->
+  lookup x E = None.
+Proof.
+  intros A x E Empty.
+  generalize dependent E.
+  induction x as [|x'].
+  Case "x = 0".
+    intros. inversion Empty; auto.
+  Case "x = S x'".
+    intros.
+    rewrite lookup_successor.
+    eauto.
+Qed.
+
+Lemma lookup_empty_Some' : forall {A} x (E : env A) t,
+  is_empty E ->
+  lookup x E = Some t ->
+  False.
+Proof.
+  intros A x E t Insert Lookup.
+  rewrite lookup_empty_None' in Lookup.
+  solve by inversion.
+  assumption.
+Qed.
+
+Lemma insert_empty_contra : forall x (t : ty) E E',
+  E = insert x t E' ->
   is_empty E -> False.
 Proof with eauto.
-  intros x t E Eq Empty.
+  intros x t E E' Eq Empty.
   generalize dependent x.
   generalize dependent t.
+  generalize dependent E'.
   induction E.
   Case "E = []". eauto using insert_nil.
   Case "E = a :: E".
@@ -253,6 +296,53 @@ Proof with eauto.
       inversion Eq; subst.
       inversion Empty...
 Qed.
+
+Lemma insert_empty_inversion : forall x1 x2 (t1 : ty) t2 E1 E2,
+  is_empty E1 ->
+  insert x1 t1 E1 = insert x2 t2 E2 ->
+  x1 = x2 /\ t1 = t2 /\ is_empty E2.
+Proof.
+  intros x1 x2 t1 t2 E1 E2 Empty Insert.
+  generalize dependent x2.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction x1 as [|x1'].
+  Case "x1 = 0".
+    intros.
+    rewrite raw_insert_zero in Insert.
+    destruct x2 as [|x2'].
+    SCase "x2 = 0".
+      rewrite raw_insert_zero in Insert.
+      inversion Insert. subst. auto.
+    SCase "x2 = S x2'".
+      rewrite raw_insert_successor in Insert.
+      inversion Insert. exfalso. eauto using insert_empty_contra.
+  Case "x1 = S x1'".
+    intros.
+    rewrite raw_insert_successor in Insert.
+    destruct x2 as [|x2'].
+    SCase "x2 = 0".
+      rewrite raw_insert_zero in Insert.
+      inversion Insert. exfalso. eauto using lookup_empty_Some'.
+    SCase "x2 = S x2'".
+      rewrite raw_insert_successor in Insert.
+      assert (x1' = x2' /\ t1 = t2 /\ is_empty (tl E2)) as [XEq [TEq E2Empty]].
+        apply IHx1' with (E1 := tl E1). auto.
+        inversion Insert; auto.
+      inversion Insert as [[Lookup Insert']].
+      rewrite lookup_empty_None' in Lookup.
+      destruct E2 as [|e2 E2'].
+      SSCase "E2 = nil". auto.
+      SSCase "E2 = e2 :: E2'".
+        split; auto.
+        split; auto.
+        assert (lookup 0 (e2 :: E2') = e2) as Lookup0. auto.
+        rewrite Lookup0 in Lookup.
+        simpl in E2Empty.
+        subst.
+        auto.
+        auto.
+Qed. (* Automation? *)
 
 Lemma empty_context : forall E E1 E2,
   is_empty E ->
@@ -314,6 +404,10 @@ Proof.
   destruct E; [auto | solve by inversion].
 Qed.
 
+(* ----------------------- *)
+(* Lemma's about splitting *)
+(* ----------------------- *)
+
 (*
 Lemma split_complete_forward : forall E E1 E2 x t,
   context_split E E1 E2 ->
@@ -348,7 +442,6 @@ Lemma split_complete_E1 : forall E E1 E2 x t,
   lookup x E = Some t.
 Abort.
 
-(* This is probably true *)
 Lemma split_complete_E2 : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E2 = Some t ->
@@ -369,21 +462,22 @@ Abort.
 Reserved Notation "L ';' E '|-' t '~:' T" (at level 40).
 
 Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
-  | HasTyUnit : forall L E,
+  | HasTyUnit L E :
       L; E |- TUnit ~: TyUnit
-  | HasTyTrue : forall L E,
+  | HasTyTrue L E :
       L; E |- TTrue ~: TyBool
-  | HasTyFalse : forall L E,
+  | HasTyFalse L E :
       L; E |- TFalse ~: TyBool
-  | HasTyVar : forall L x t,
-      L; insert x t empty |- TVar x ~: t
-  | HasTyAbs : forall L E e t1 t2,
-      L; (insert 0 t1 E) |- e ~: t2 ->
+  | HasTyVar L E x t
+      (VarPre : is_empty E) :
+      L; insert x t E |- TVar x ~: t
+  | HasTyAbs L E e t1 t2
+      (AbsPre : L; (insert 0 t1 E) |- e ~: t2) :
       L; E |- TAbs t1 e ~: TyFun t1 t2
-  | HasTyApp : forall L E E1 E2 e1 e2 t1 t2,
-      context_split E E1 E2 ->
-      L; E1 |- e1 ~: TyFun t1 t2 ->
-      L; E2 |- e2 ~: t1 ->
+  | HasTyApp L E E1 E2 e1 e2 t1 t2
+      (AppPreSplit : context_split E E1 E2)
+      (AppPreWT1 : L; E1 |- e1 ~: TyFun t1 t2)
+      (AppPreWT2 : L; E2 |- e2 ~: t1) :
       L; E  |- TApp e1 e2 ~: t2
 
 where "L ';' E '|-' t '~:' T" := (has_type L E t T).
@@ -407,11 +501,11 @@ Proof with eauto.
   (* e1 steps *)
   SCase "e1 steps".
     (* Proof by StepApp1 (invert stepping of e1) *)
-    inversion Step_e1. inversion H0... (* FIXME: naming here *)
+    inversion Step_e1. inversion H... (* FIXME: naming here *)
   SCase "e1 is a value".
     destruct IHWT2 as [Step_e2 | Value_e2]...
     SSCase "e2 steps".
-      inversion Step_e2... inversion H0... (* FIXME: same naming fix needed here *)
+      inversion Step_e2... inversion H... (* FIXME: same naming fix needed here *)
     SSCase "e2 is a value".
       (* Here we use beta reduction, by first showing that e1 must be a lambda expression *)
       left.
@@ -419,48 +513,13 @@ Proof with eauto.
       SSSCase "e1 is a TVar".
         (* Var case is impossible *)
         inversion WT1; subst.
-        exfalso. eauto using insert_is_empty.
+        exfalso. eauto using insert_empty_contra.
       (* Beta reduction! *)
       exists s.
       exists (subst e2 0 e1)...
 Qed.
 
 (* Works up to here *)
-
-Example test:
-  empty; insert 0 (TyFun TyUnit TyBool) empty |-
-    (subst TUnit 1 (TApp (TVar 0) (TVar 1))) ~: TyBool.
-Proof with auto.
-  simpl_subst_goal.
-  apply HasTyApp with (E1 := (insert 0 (TyFun TyUnit TyBool) empty)) (E2 := empty) (t1 := TyUnit)...
-  constructor.
-  exists (Left :: nil).
-  rewrite raw_insert_zero.
-  auto.
-Qed.
-
-Lemma insert_empty : forall x1 x2 (t1 : ty) t2 E,
-  insert x1 t1 empty = insert x2 t2 E ->
-  x1 = x2 /\ t1 = t2 /\ E = empty.
-Proof.
-  intros.
-  assert (lookup x2 (insert x1 t1 empty) = lookup x2 (insert x2 t2 E)).
-  auto using f_equal.
-  destruct (lt_eq_lt_dec x1 x2). destruct s.
-  Case "x1 < x2".
-    lookup_insert_all. rewrite lookup_insert_bingo in H0.
-    assert False. eauto using lookup_empty_Some. solve by inversion. auto.
-  Case "x1 = x2".
-    lookup_insert_all. rewrite lookup_insert_bingo in H0.
-    inversion H0. split; auto. split; auto.
-    (* TODO: Look up some other key *)
-    admit. auto.
-  Case "x2 < x1".
-    lookup_insert_all. rewrite lookup_insert_bingo in H0.
-    assert False. eauto using lookup_empty_Some. solve by inversion. auto.
-Qed.
-
-
 
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
@@ -471,7 +530,7 @@ Proof.
   intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
   dependent induction WT2; simpl_subst_goal; eauto.
   Case "Var".
-    (* WTF hypothesis naming... *)
+    (* FIXME: naming? *)
     apply insert_empty in x. destruct x as [XEq [TEq E2Eq]].
     subst. simpl_subst_goal.
     apply split_single_left in Split. subst; auto.
