@@ -157,59 +157,15 @@ Hint Constructors step.
 Definition loc_ctxt := env unit.
 Definition ty_ctxt := env ty.
 
-(* Liam OConnor's approach... seems to require vector environments *)
-(*
-Inductive split_single : option ty -> option ty -> option ty -> Prop :=
-  | split_left : forall v, split_single v v None
-  | split_right : forall v, split_single v None v.
-
+(* Context splitting similar to Liam OConnor's approach *)
 Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
   | split_empty : context_split empty empty empty
-  | split_cons : forall E E1 E2 v v1 v2,
-      split_single v v1 v2 ->
-      context_split E E1 E2 ->
-      context_split (v :: E) (v1 :: E1) (v2 :: E2).
-*)
-
-(* Computational definition of context splitting. *)
-Inductive selector := Left | Right.
-Definition mask_t := list selector.
-
-(* Apply a mask to create the left split *)
-Fixpoint filter_left (E : ty_ctxt) mask : ty_ctxt :=
-  match E, mask with
-  | e :: E', Left :: mask' => e :: filter_left E' mask'
-  | _ :: E', Right :: mask' => None :: filter_left E' mask'
-  | _, _ => empty
-  end.
-
-Fixpoint filter_right (E : ty_ctxt) mask : ty_ctxt :=
-  match E, mask with
-  | _ :: E', Left :: mask' => None :: filter_right E' mask'
-  | e :: E', Right :: mask' => e :: filter_right E' mask'
-  | _, _ => empty
-  end.
-
-(*
-Fixpoint do_context_split (E: ty_ctxt) mask : (ty_ctxt * ty_ctxt) :=
-  match E, mask with
-  | e :: E', sel :: mask' => (
-    let (left, right) := do_context_split E' mask' in
-    match sel with
-    | Left => (e :: left, None :: right)
-    | Right => (None :: left, e :: right)
-    end)
-  | _, _ => (empty, empty)
-  end.
-*)
-
-Inductive context_split : ty_ctxt -> ty_ctxt -> ty_ctxt -> Prop :=
-  | ContextSplit E E1 E2
-      (ExMask : exists mask,
-        filter_left E mask = E1 /\
-        filter_right E mask = E2 /\
-        length mask = length E) :
-    context_split E E1 E2.
+  | split_left E E1 E2 v
+      (SplitLeft : context_split E E1 E2) :
+      context_split (v :: E) (v :: E1) (None :: E2)
+  | split_right E E1 E2 v
+      (SplitRight : context_split E E1 E2) :
+      context_split (v :: E) (None :: E1) (v :: E2).
 
 Hint Constructors context_split.
 
@@ -229,8 +185,7 @@ Example split_test : exists E,
 Proof with auto.
   exists (None :: empty).
   split...
-  constructor.
-  exists (Left :: nil)...
+  rewrite raw_insert_zero...
 Qed.
 
 (* ----------------------- *)
@@ -349,52 +304,9 @@ Lemma empty_context : forall E E1 E2,
   context_split E E1 E2 ->
   is_empty E1 /\ is_empty E2.
 Proof with eauto.
-  intros E E1 E2 Empty CSplit.
-  generalize dependent E1.
-  generalize dependent E2.
-  induction E.
-  Case "nil".
-    intros.
-    inversion CSplit. subst.
-    destruct ExMask as [mask [SplitL [SplitR Len]]].
-    subst...
-  Case "a :: E".
-    intros.
-    inversion Empty. subst.
-    inversion CSplit. subst.
-    destruct ExMask as [mask [SplitL [SplitR Len]]].
-    destruct mask as [| s mask']; try solve by inversion.
-    destruct s; simpl in SplitL; simpl in SplitR.
-    (* FIXME: Deduplicate this. *)
-    SCase "Left".
-      destruct E1 as [| x E1']; try solve by inversion.
-      destruct E2 as [| y E2']; try solve by inversion.
-      inversion SplitL.
-      inversion SplitR.
-      assert (is_empty E1' /\ is_empty E2') as [EmptyE1 EmptyE2].
-      SSCase "Proof of assertion".
-        apply IHE.
-          auto.
-        constructor.
-        exists (mask').
-        auto.
-      subst.
-      split; constructor; eauto.
-    (* FIXME : copy paste *)
-    SCase "Right".
-      destruct E1 as [| x E1']; try solve by inversion.
-      destruct E2 as [| y E2']; try solve by inversion.
-      inversion SplitL.
-      inversion SplitR.
-      assert (is_empty E1' /\ is_empty E2') as [EmptyE1 EmptyE2].
-      SSCase "Proof of assertion".
-        apply IHE.
-          auto.
-        constructor.
-        exists (mask').
-        auto.
-      subst.
-      split; constructor; eauto.
+  intros E E1 E2 Empty Split.
+  induction Split; solve [ auto |
+    inversion Empty; subst; assert (is_empty E1 /\ is_empty E2) as [EmptyE1 EmptyE2]; eauto].
 Qed.
 
 Lemma zero_length_empty : forall (E : ty_ctxt), length E = 0 -> E = empty.
@@ -436,6 +348,22 @@ Proof.
 Abort.
 *)
 
+Lemma context_split_length1 : forall E E1 E2,
+  context_split E E1 E2 ->
+  length E = length E1.
+Proof.
+  intros E E1 E2 Split.
+  induction Split; simpl; eauto.
+Qed.
+
+Lemma context_split_length2 : forall E E1 E2,
+  context_split E E1 E2 ->
+  length E = length E2.
+Proof.
+  intros E E1 E2 Split.
+  induction Split; simpl; eauto.
+Qed.
+
 Lemma split_complete_E1 : forall E E1 E2 x t,
   context_split E E1 E2 ->
   lookup x E1 = Some t ->
@@ -448,10 +376,15 @@ Lemma split_complete_E2 : forall E E1 E2 x t,
   lookup x E = Some t.
 Abort.
 
-Lemma split_single_left : forall E E1,
-  context_split E E1 empty ->
+Lemma split_single_left : forall E E1 E2,
+  is_empty E2 ->
+  context_split E E1 E2 ->
   E = E1.
-Abort.
+Proof.
+  intros E E1 E2 Empty Split.
+  induction Split; solve [ auto |
+    inversion Empty; subst; eauto using f_equal].
+Qed.
 
 Lemma split_single_right : forall E E2,
   context_split E empty E2 ->
@@ -531,7 +464,7 @@ Proof.
   dependent induction WT2; simpl_subst_goal; eauto.
   Case "Var".
     (* FIXME: naming? *)
-    apply insert_empty in x. destruct x as [XEq [TEq E2Eq]].
+    apply insert_empty_inversion in x. destruct x as [XEq [TEq E2Eq]].
     subst. simpl_subst_goal.
     apply split_single_left in Split. subst; auto.
   Case "Abs".
