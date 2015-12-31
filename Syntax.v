@@ -395,11 +395,14 @@ Abort.
 Reserved Notation "L ';' E '|-' t '~:' T" (at level 40).
 
 Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
-  | HasTyUnit L E :
+  | HasTyUnit L E
+      (UnitEmpty : is_empty E) :
       L; E |- TUnit ~: TyUnit
-  | HasTyTrue L E :
+  | HasTyTrue L E
+      (TrueEmpty : is_empty E) :
       L; E |- TTrue ~: TyBool
-  | HasTyFalse L E :
+  | HasTyFalse L E
+      (FalseEmpty : is_empty E) :
       L; E |- TFalse ~: TyBool
   | HasTyVar L E x t
       (VarPre : is_empty E) :
@@ -452,28 +455,72 @@ Proof with eauto.
       exists (subst e2 0 e1)...
 Qed.
 
-(* Works up to here *)
+Lemma insert_none_is_empty : forall {A} (E : env A) E' x,
+  is_empty E ->
+  raw_insert x None E = E' ->
+  is_empty E'.
+Proof. admit. Qed.
+
+Lemma insert_none_split : forall E E1 E2 x,
+  context_split E E1 E2 ->
+  context_split (raw_insert x None E) (raw_insert x None E1) (raw_insert x None E2).
+Proof with eauto.
+  intros E E1 E2 x Split.
+  generalize dependent E.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction x as [|x']; intros.
+  Case "x = 0".
+    repeat rewrite raw_insert_zero...
+  Case "x = S x'".
+    repeat rewrite raw_insert_successor.
+    inversion Split as [|E' E1' E2'|E' E1' E2']...
+Qed.
+
+Lemma typing_insert_None : forall L E e t x,
+  L; E |- e ~: t ->
+  L; raw_insert x None E |- shift x e ~: t.
+Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split).
+  intros L E e t x WT.
+  generalize dependent x.
+  induction WT; intros y; simpl_lift_goal...
+  Case "Var".
+    destruct (le_lt_dec y x); lift_idx.
+    SCase "y <= x".
+      rewrite insert_insert...
+    SCase "y > x".
+      destruct y as [|y']; try solve by inversion...
+      rewrite <- insert_insert...
+  Case "Abs".
+    constructor.
+    rewrite insert_insert...
+Qed.
 
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
   forall E E1 e1, L; E1 |- e1 ~: t1 ->
   context_split E E1 E2 ->
   L; E |- (subst e1 x e2) ~: t2.
-Proof.
+Proof with (eauto using typing_insert_None).
   intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
-  dependent induction WT2; simpl_subst_goal; eauto.
+  dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using insert_empty_contra].
   Case "Var".
-    (* FIXME: naming? *)
-    apply insert_empty_inversion in x. destruct x as [XEq [TEq E2Eq]].
-    subst. simpl_subst_goal.
-    apply split_single_left in Split. subst; auto.
+    (* FIXME: naming of x is weird here *)
+    apply insert_empty_inversion in x...
+    destruct x as [XEq [TEq E2Eq]].
+    subst.
+    simpl_subst_goal.
+    apply split_single_left in Split...
+    subst...
   Case "Abs".
     constructor.
     (* XXX: Bug in error reporting - can't specify E0 *)
-    eapply IHWT2 with (t3 := t1) (E1 := E1).
-    insert_insert.
-    admit. (* Require closed terms for substitution? *)
-    auto using split_right.
+    eapply IHWT2 with (t3 := t1) (E1 := (None :: E1)).
+    SCase "inserts are equal". insert_insert.
+    SCase "e1 well-typed under shifting".
+      assert (L; raw_insert 0 None E1 |- shift 0 e1 ~: t1)...
+    SCase "context_split is sensible".
+      rewrite raw_insert_zero; rewrite raw_insert_zero...
   Case "App".
     admit.
 Qed.
