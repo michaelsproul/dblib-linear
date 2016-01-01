@@ -320,6 +320,51 @@ Qed.
 (* Lemma's about splitting *)
 (* ----------------------- *)
 
+Lemma split_commute : forall E E1 E2,
+  context_split E E1 E2 -> context_split E E2 E1.
+Proof with auto.
+  intros E E1 E2 Split.
+  induction Split...
+Qed.
+
+(* FIXME: delete this probably *)
+Lemma split_misc_lemma : forall E E1 E2 v,
+  context_split (v :: E) E1 E2 ->
+  exists v1 v2 E1' E2', E1 = v1 :: E1' /\ E2 = v2 :: E2' /\ context_split E E1' E2'.
+Proof with auto.
+  intros E E1 E2 v Split.
+  inversion Split as [| ? E1' E2' | ? E1' E2']; subst.
+  Case "left".
+    exists v, None, E1', E2'...
+  Case "right".
+    exists None, v, E1', E2'...
+Qed.
+
+(* In the proof of the lemma below, the proofs for the left and right cases are almost the same.
+   The proofs differ only in the first elements of their new amalgamated contexts (E02).
+   The first elements for each of the inversion cases are passed as the arguments v1 and v2. *)
+Ltac split_rotate_crush v1 v2 E E0 :=
+  inversion Split12 as [| ? E1' E2' | ? E1' E2'];
+  subst;
+  assert (exists ENew, context_split E E1' ENew /\ context_split ENew E0 E2') as [ENew [EN1 EN2]];
+  auto;
+  [exists (v1 :: ENew); eauto | exists (v2 :: ENew); eauto ].
+
+(* Draw a tree! *)
+Lemma split_rotate : forall E E0 E12 E1 E2,
+  context_split E E0 E12 ->
+  context_split E12 E1 E2 ->
+  (exists E02, context_split E E1 E02 /\ context_split E02 E0 E2).
+Proof.
+  intros E E0 E12 E1 E2 SplitE012 Split12.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction SplitE012 as [| E E0 E12 | E E0 E12]; intros.
+  Case "empty". inversion Split12; subst; eauto.
+  Case "left". split_rotate_crush v v E E0.
+  Case "right". split_rotate_crush (None : option ty) v E E0.
+Qed.
+
 (*
 Lemma split_complete_forward : forall E E1 E2 x t,
   context_split E E1 E2 ->
@@ -386,10 +431,13 @@ Proof.
     inversion Empty; subst; eauto using f_equal].
 Qed.
 
-Lemma split_single_right : forall E E2,
-  context_split E empty E2 ->
+Lemma split_single_right : forall E E1 E2,
+  is_empty E1 ->
+  context_split E E1 E2 ->
   E = E2.
-Abort.
+Proof.
+  eauto using split_commute, split_single_left.
+Qed.
 
 (* TYPING JUDGEMENT *)
 Reserved Notation "L ';' E '|-' t '~:' T" (at level 40).
@@ -496,6 +544,25 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
     rewrite insert_insert...
 Qed.
 
+(* If a typing context is used to type an application, then any variable in the context
+   can only be used in either the function OR argument component of the term. *)
+(* WRONG as currently phrased *)
+Lemma app_uniqueness : forall L E e1 e2 v x t tx,
+  lookup x E = Some tx ->
+  L; E |- TApp e1 e2 ~: t ->
+  (subst v x e1 = e1 \/ subst v x e2 = e2).
+Proof.
+  intros L E e1 e2 v x t tx Lookup WT.
+  induction e1; try solve [ left; auto ].
+  Case "Var".
+    destruct (eq_nat_dec x n).
+    SCase "x = n". admit.
+    SCase "x <> n".
+      left.
+      simpl_subst_goal.
+      (* Problematic because vars change their internal index. *)
+Abort.
+
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
   forall E E1 e1, L; E1 |- e1 ~: t1 ->
@@ -522,73 +589,24 @@ Proof with (eauto using typing_insert_None).
     SCase "context_split is sensible".
       rewrite raw_insert_zero; rewrite raw_insert_zero...
   Case "App".
-    admit.
+    rename E0 into E2'.
+    rename E1 into E1'.
+    rename E3 into E0.
+    rename E2 into E12.
+    assert (exists E1, E1' = raw_insert x None E1) as [E1 E1Intro].
+      admit.
+    assert (exists E2, E2' = insert x t1 E2) as [E2 E2Intro].
+      admit.
+    assert (exists E02, context_split E02 E0 E2 /\ context_split E E1 E02) as [E02 [SplitE02 SplitE102]].
+      admit.
+    apply HasTyApp with (E1 := E1) (E2 := E02) (t1 := t0).
+      assumption.
+    admit. (* Need something here about raw_insert and subst and shift *)
+    apply IHWT2_2 with (E1 := E0) (E2 := E2) (t1 := t1).
+      rewrite E2Intro; auto. (* messy *)
+      assumption.
+      assumption.
 Qed.
-
-Lemma substitution_old: forall L E x (*e1*) e2 t1 t2,
-  L; (insert x t1 E) |- e2 ~: t2 ->
-  forall e1, L; E |- e1 ~: t1 ->
-  L; E |- (subst e1 x e2) ~: t2.
-Proof.
-  intros L E x e2 t1 t2 WT2.
-  (* We seem to require dependent induction here to avoid getting useless contexts *)
-  dependent induction WT2; intros e1' WT1; simpl_subst_goal; eauto.
-  Case "TVar".
-    unfold subst_idx.
-    dblib_by_cases; lookup_insert_all; auto.
-  Case "TAbs".
-    constructor.
-    apply IHWT2 with (t3 := t1).
-      insert_insert.
-
-      auto.
-      apply blah.
-  Case "TApp".
-
-(* Alternative induction *)
-(* de
-  intros L E x e2. (* t1 t2 WT2 e1 WT1. *)
-  induction e2; simpl_subst_goal. intros t1 t2 WT1 e1 WT2; inversion WT2; eauto; subst.
-  Case "TVar".
-    unfold subst_idx.
-    dblib_by_cases; lookup_insert_all; auto.
-  Case "TAbs".
-    constructor.
-
-  simpl_subst_goal.
-  inversion WT2. auto.
-*)
-(*
-
-    intros.
-    apply HasTyAbs.
-    assert (closed 0 e1) as E1Closed. admit.
-    rewrite E1Closed.
-    Check lift_subst_2.
-    apply weakening.
-
-    unfold closed in H. subst.
-    assert (empty; insert 0 t0 empty |- subst (shift 0 e1) (1 + x) (shift 0 e) ~: t2).
-    Check closed.
-    Check lift_subst_1.
-
-    assert (empty; insert 0 t0 empty |- subst (lift 1 0 e) (1 + x) (lift 1 0 e) ~: t2).
-    rewrite <- lift_subst_1.
-    apply weakening with (E := empty) (u := t0).
-    eauto with insert_insert.
-    admit.
-    reflexivity.
-    SearchPattern (0 <= _).
-    auto using le_0_n.
-    (* FIXME: This appears to require e to be closed (shift 0 e) = e *)
-    admit.
-  Case "TApp".
-    intros.
-    apply HasTyApp with (E1 := E1) (E2 := E2) (t1 := t1).
-    admit. admit. admit.
-Qed.
-*)
-Abort.
 
 (* Preservation *)
 Theorem preservation : forall e e' s s' t,
