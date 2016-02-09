@@ -599,13 +599,62 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
     rewrite insert_insert...
 Qed.
 
+(* TODO: Prove the lemmas like this in DbLib (replace their equivalents) *)
+Lemma raw_insert_eq_insert_1:
+  forall A x a1 a2 (e1 e2 : env A),
+  raw_insert x a1 e1 = raw_insert x a2 e2 ->
+  a1 = a2.
+Proof. admit. Qed.
+
+Lemma raw_insert_eq_insert_3:
+  forall A x1 x2 a1 a2 (e1 e2 : env A),
+  raw_insert x1 a1 e1 = raw_insert x2 a2 e2 ->
+  x1 <> x2 ->
+  exists e y1 y2,
+  e1 = raw_insert y1 a2 e /\
+  e2 = raw_insert y2 a1 e /\
+  shift x1 y1 = x2 /\
+  y2 = (if le_gt_dec x1 y1 then x1 else x1 - 1).
+Proof.
+  admit.
+Qed.
+
+Lemma raw_insert_swap : forall A (E1 : env A) E2 x1 x2 o1 o2,
+  raw_insert x1 o1 E1 = raw_insert x2 o2 E2 ->
+  x1 <= x2 ->
+  exists E0, E1 = raw_insert (x2 - 1) o2 E0 /\ E2 = raw_insert x1 o1 E0.
+Proof.
+  admit.
+Qed.
+
 (* TODO *)
 Lemma typing_insert_None_reverse : forall L E e t x,
   L; raw_insert x None E |- e ~: t ->
   L; E |- unshift x e ~: t.
-Proof.
+Proof with (eauto using insert_none_is_empty_inversion).
   intros L E e t x WT.
-  admit.
+  induction e; try solve [simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
+  Case "TVar".
+    simpl.
+    destruct (le_gt_dec x n).
+    SCase "x <= n".
+      inversion WT; subst.
+      rename E0 into E1.
+      rename E into E2.
+      symmetry in H1.
+      apply raw_insert_swap in H1...
+      decompose record H1.
+      subst...
+    SCase "x > n".
+      inversion WT; subst.
+      apply raw_insert_swap in H1.
+      decompose record H1.
+      subst...
+      omega.
+  Case "TAbs".
+    admit.
+  Case "TApp".
+    admit.
 Qed.
 
 (* TODO: These two lemmas will be proved with DbLib automation, simpl_unlift_goal. *)
@@ -649,25 +698,7 @@ Proof with (eauto using f_equal, not_contains_Abs,
     rewrite IHe1...
 Qed.
 
-(* TODO: Prove the lemmas like this in DbLib (replace their equivalents) *)
-Lemma raw_insert_eq_insert_1:
-  forall A x a1 a2 (e1 e2 : env A),
-  raw_insert x a1 e1 = raw_insert x a2 e2 ->
-  a1 = a2.
-Proof. admit. Qed.
 
-Lemma raw_insert_eq_insert_3:
-  forall A x1 x2 a1 a2 (e1 e2 : env A),
-  raw_insert x1 a1 e1 = raw_insert x2 a2 e2 ->
-  x1 <> x2 ->
-  exists e y1 y2,
-  e1 = raw_insert y1 a2 e /\
-  e2 = raw_insert y2 a1 e /\
-  shift x1 y1 = x2 /\
-  y2 = (if le_gt_dec x1 y1 then x1 else x1 - 1).
-Proof.
-  admit.
-Qed.
 
 Lemma typing_without_var : forall L E e x t,
   L; raw_insert x None E |- e ~: t -> ~ contains_var x e.
