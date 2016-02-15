@@ -580,6 +580,38 @@ Proof.
   eauto using insert_none_split_left, split_commute.
 Qed.
 
+Lemma insert_none_split_strip_none : forall E E1 E2 x,
+  context_split (raw_insert x None E) (raw_insert x None E1) (raw_insert x None E2) ->
+  context_split E E1 E2.
+Proof with eauto.
+  intros E E1 E2 x Split.
+  dependent induction x.
+  Case "x = 0".
+    repeat rewrite raw_insert_zero in Split.
+    inversion Split...
+  Case "x = S x".
+    repeat rewrite raw_insert_successor in Split.
+    inversion Split. subst.
+    (* Feels like the same thing over and over *)
+    admit.
+    admit.
+Qed.
+
+Lemma insert_none_split_backwards : forall E E1 E2 x,
+  context_split (raw_insert x None E) E1 E2 ->
+  (exists E1' E2', E1 = raw_insert x None E1' /\ E2 = raw_insert x None E2' /\ context_split E E1' E2').
+Proof.
+  intros E E1 E2 x H.
+  assert (SplitL := H).
+  assert (SplitR := H).
+  apply insert_none_split_left in SplitL. destruct SplitL as [F1'].
+  apply insert_none_split_right in SplitR. destruct SplitR as [F2'].
+  exists F1'. exists F2'.
+  split. eauto.
+  split. eauto.
+  subst. eauto using insert_none_split_strip_none.
+Qed.
+
 Lemma typing_insert_None : forall L E e t x,
   L; E |- e ~: t ->
   L; raw_insert x None E |- shift x e ~: t.
@@ -628,13 +660,34 @@ Proof.
 Qed.
 
 (* TODO *)
+Opaque unlift.
+
+Lemma lift_var : forall x t e, shift x (TAbs t e) = TAbs t (shift (S x) (e)).
+Proof with eauto.
+  intros.
+  repeat rewrite expand_lift.
+  simpl traverse.
+  simpl_lift_goal...
+Qed.
+
+Lemma unlift_abs : forall x t e, unshift x (TAbs t e) = TAbs t (unshift (S x) e).
+Proof with eauto.
+  intros.
+  simpl_unlift_goal...
+Qed.
+
 Lemma typing_insert_None_reverse : forall L E e t x,
   L; raw_insert x None E |- e ~: t ->
   L; E |- unshift x e ~: t.
 Proof with (eauto using insert_none_is_empty_inversion).
   intros L E e t x WT.
-  induction e; try solve [simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
+  generalize dependent x.
+  generalize dependent t.
+  generalize dependent E.
+  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
   Case "TVar".
+    intros.
+    Transparent unlift.
     simpl.
     destruct (le_gt_dec x n).
     SCase "x <= n".
@@ -652,9 +705,20 @@ Proof with (eauto using insert_none_is_empty_inversion).
       subst...
       omega.
   Case "TAbs".
-    admit.
+    intros.
+    simpl_unlift_goal.
+    inversion WT; subst.
+    econstructor.
+    apply IHe.
+    rewrite<- insert_insert...
+    omega.
   Case "TApp".
-    admit.
+    intros.
+    simpl_unlift_goal.
+    inversion WT; subst.
+    apply insert_none_split_backwards in AppPreSplit.
+    destruct AppPreSplit as [E1' [E2' [E1'Intro [E2'Intro SplitE]]]].
+    subst...
 Qed.
 
 (* TODO: These two lemmas will be proved with DbLib automation, simpl_unlift_goal. *)
