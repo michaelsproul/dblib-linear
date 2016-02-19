@@ -659,7 +659,6 @@ Proof.
   admit.
 Qed.
 
-(* TODO *)
 Opaque unlift.
 
 Lemma lift_var : forall x t e, shift x (TAbs t e) = TAbs t (shift (S x) (e)).
@@ -670,8 +669,15 @@ Proof with eauto.
   simpl_lift_goal...
 Qed.
 
-Lemma unlift_abs : forall x t e, unshift x (TAbs t e) = TAbs t (unshift (S x) e).
+Lemma unshift_Abs : forall x t e, unshift x (TAbs t e) = TAbs t (unshift (S x) e).
 Proof with eauto.
+  intros.
+  simpl_unlift_goal...
+Qed.
+
+Lemma unshift_App : forall x e1 e2,
+  unshift x (TApp e1 e2) = TApp (unshift x e1) (unshift x e2).
+Proof with auto.
   intros.
   simpl_unlift_goal...
 Qed.
@@ -721,19 +727,6 @@ Proof with (eauto using insert_none_is_empty_inversion).
     subst...
 Qed.
 
-(* TODO: These two lemmas will be proved with DbLib automation, simpl_unlift_goal. *)
-Lemma unshift_Abs : forall x t e,
-  unshift x (TAbs t e) = TAbs t (unshift (S x) e).
-Proof.
-  admit.
-Qed.
-
-Lemma unshift_App : forall x e1 e2,
-  unshift x (TApp e1 e2) = TApp (unshift x e1) (unshift x e2).
-Proof.
-  admit.
-Qed.
-
 Lemma subst_unshift : forall x e v,
   ~ contains_var x e ->
   subst v x e = unshift x e.
@@ -761,8 +754,6 @@ Proof with (eauto using f_equal, not_contains_Abs,
     simpl_subst_goal. rewrite unshift_App.
     rewrite IHe1...
 Qed.
-
-
 
 Lemma typing_without_var : forall L E e x t,
   L; raw_insert x None E |- e ~: t -> ~ contains_var x e.
@@ -818,12 +809,182 @@ Proof.
   eauto using typing_insert_None_reverse.
 Qed.
 
+Lemma context_split_insert : forall E E1 E2 x t,
+  context_split (insert x t E) E1 E2 ->
+  (exists E1' E2',
+    E1 = insert x t E1' /\
+    E2 = raw_insert x None E2') \/
+  (exists E1' E2',
+    E1 = raw_insert x None E1' /\
+    E2 = insert x t E2').
+Proof with (eauto).
+  intros E E1 E2 x t Split.
+  generalize dependent E.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction x as [|x'].
+  Case "x = 0".
+    intros.
+    rewrite raw_insert_zero in Split.
+    inversion Split; eauto using raw_insert_zero.
+  Case "x = S x'".
+    intros.
+    rewrite raw_insert_successor in Split.
+    inversion Split.
+    rename E3 into E1'.
+    rename E4 into E2'.
+    SCase "split left".
+      left.
+      apply IHx' in SplitLeft.
+      destruct SplitLeft.
+      SSCase "left".
+        destruct H as [E1'' [E2'' [? ?]]].
+        exists (lookup 0 E :: E1'').
+        exists (None :: E2'').
+        repeat rewrite raw_insert_successor.
+        simpl.
+        assert (lookup 0 (lookup 0 E :: E1'') = lookup 0 E) as R...
+        rewrite R; clear R.
+        assert (lookup 0 (None :: E2'') = None) as R...
+        rewrite R; clear R.
+        subst...
+    admit. admit.
+Qed.
+
+Lemma split_cons : forall E E1 E2 e e1 e2,
+  context_split (e :: E) (e1 :: E1) (e2 :: E2) ->
+  context_split E E1 E2.
+Proof with eauto.
+  intros E E1 E2 e e1 e2 Split.
+  destruct e1; inversion Split; subst...
+Qed.
+
+Lemma split_tails : forall E E1 E2,
+  context_split (lookup 0 E :: tl E) (lookup 0 E1 :: tl E1) (lookup 0 E2 :: tl E2) ->
+  context_split E E1 E2.
+Proof with eauto.
+  intros E E1 E2 Split.
+  induction (E1).
+  Case "nil".
+    simpl in Split.
+    rewrite lookup_empty_None in Split.
+    inversion Split; subst.
+    SCase "split empty".
+      inversion SplitLeft.
+      assert (E = None :: nil).
+        destruct E. simpl in H1.
+  Abort.
+(*
+  induction (lookup 0 E1 :: tl E1) as [|e1 E1'].
+  Case "nil".
+    solve by inversion.
+  Case 
+    inversion Split.
+
+  dependent induction Split.
+  apply IHSplit.
+
+  induction E as [|e E'].
+  Case "E = nil".
+    simpl in Split.
+    rewrite lookup_empty_None in Split.
+    inversion Split; subst. inversion SplitLeft.
+*)
+
+Lemma length_insert' : forall {A} (E1 : env A) (E2 : env A) x v1 v2,
+  length (raw_insert x v1 E1) = length (raw_insert x v2 E2) ->
+  length E1 = length E2.
+Proof with eauto.
+  intros A E1 E2 x v1 v2 Len.
+  rewrite length_insert_general with (k := length E1) in Len...
+  rewrite length_insert_general with (k := length E2) in Len...
+  simpl in Len.
+  unfold mymax in Len.
+  destruct (le_gt_dec (S (length E1)) (S x));
+  destruct (le_gt_dec (S (length E2)) (S x)).
+Qed.
+(*
+  intros A E1 E2 x v1 v2 Len.
+  generalize dependent E1.
+  generalize dependent E2.
+  generalize dependent v1.
+  generalize dependent v2.
+  induction x as [|x']; intros.
+  Case "x = 0".
+    repeat rewrite raw_insert_zero in Len...
+  Case "x = S x'".
+    repeat rewrite raw_insert_successor in Len...
+    assert (length (tl E1) = length (tl E2))...
+    destruct E1 as [|e1 E1']; destruct E2 as [|e2 E2'].
+    SCase "nil and nil". auto.
+    SCase "nil and cons".
+      exfalso. simpl in H. simpl in Len.
+        
+Abort.
+*)
+
+Lemma split_insert_x : forall E E1 E2 x t,
+  context_split (insert x t E) (insert x t E1) (raw_insert x None E2) ->
+  context_split E E1 E2.
+Proof with (eauto using split_cons).
+  intros E E1 E2 x t Split.
+  generalize dependent E.
+  generalize dependent E1.
+  generalize dependent E2.
+  generalize dependent t.
+  induction x as [|x']; intros.
+  Case "x = 0".
+    repeat rewrite raw_insert_zero in Split.
+    inversion Split...
+  Case "x = S x'".
+    repeat rewrite raw_insert_successor in Split.
+    destruct (lookup 0 E) as [t' | ] eqn: Lookup0E.
+    SCase "E[0] = Some t'".
+      inversion Split. subst.
+      assert (context_split (tl E) (tl E1) (tl E2))...
+      assert (context_split (Some t' :: tl E)
+                            (Some t' :: tl E1)
+                            (None :: tl E2))...
+      Transparent lookup.
+      Ltac crush list eq :=
+        destruct list as [|e E'];
+          [ exfalso; eauto using lookup_empty_Some
+          | simpl in eq; subst e; eauto ].
+      assert (E = Some t' :: tl E).
+        crush E Lookup0E.
+      assert (E1 = Some t' :: tl E1).
+        crush E1 H.
+      (* Eurgh, this is painful *)
+      assert (E2 = None :: tl E2).
+        assert (length E = length E2).
+          rewrite <- Lookup0E in Split.
+          repeat rewrite <- raw_insert_successor in Split.
+          eauto using context_split_length2, length_insert'.
+        destruct E2 as [|e2 E2'].
+        SSCase "nil is impossible".
+          exfalso. rewrite H2 in H5. solve by inversion.
+        simpl in H4. subst e2. auto.
+        (* that was the worst... *)
+      (* Main lemma *)
+      rewrite H2. rewrite H3. rewrite H5. auto.
+      (* Split right case, similar *)
+      admit.
+    SCase "E[0] = None".
+      admit.
+Abort.
+
+Lemma split_insert_x : forall E E1 E2 x t,
+  context_split (insert x t E) (insert x t E1) (raw_insert x None E2) ->
+  context_split E E1 E2.
+admit. Qed.
+
 Lemma substitution: forall L E2 e2 t1 t2 x,
   L; insert x t1 E2 |- e2 ~: t2 ->
   forall E E1 e1, L; E1 |- e1 ~: t1 ->
   context_split E E1 E2 ->
   L; E |- (subst e1 x e2) ~: t2.
-Proof with (eauto using typing_insert_None).
+Proof with (eauto using typing_insert_None, typing_insert_none_subst,
+                        split_commute, split_rotate, split_insert_x).
   intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
   dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using insert_empty_contra].
   Case "Var".
@@ -848,19 +1009,25 @@ Proof with (eauto using typing_insert_None).
     rename E1 into E1'.
     rename E3 into E0.
     rename E2 into E12.
-    assert (exists E1, E1' = raw_insert x None E1) as [E1 E1Intro].
-      admit.
-    assert (exists E2, E2' = insert x t1 E2) as [E2 E2Intro].
-      admit.
-    assert (exists E02, context_split E02 E0 E2 /\ context_split E E1 E02) as [E02 [SplitE02 SplitE102]].
-      admit.
-    apply HasTyApp with (E1 := E1) (E2 := E02) (t1 := t0).
-      assumption.
-    subst E1'; eauto using typing_insert_none_subst.
-    apply IHWT2_2 with (E1 := E0) (E2 := E2) (t1 := t1).
-      rewrite E2Intro; auto. (* messy *)
-      assumption.
-      assumption.
+    (* x is either in E1' or E2' *)
+    assert (SplitX := AppPreSplit).
+    apply context_split_insert in SplitX.
+    destruct SplitX as [XLeft | XRight].
+    SCase "x on the left".
+      destruct XLeft as [E1 [E2 [? ?]]].
+      subst E1'.
+      subst E2'.
+      assert (context_split E12 E1 E2)...
+      assert (context_split E12 E2 E1)...
+      assert (exists E01, context_split E E2 E01 /\ context_split E01 E0 E1)
+        as [E01 [Split201 SplitE01]]...
+    SCase "x on the right".
+      destruct XRight as [E1 [E2 [? ?]]].
+      subst E1'.
+      subst E2'.
+      assert (context_split E12 E1 E2)...
+      assert (exists E02, context_split E E1 E02 /\ context_split E02 E0 E2)
+        as [E01 [Split201 SplitE01]]...
 Qed.
 
 (* Preservation - TODO *)
