@@ -605,24 +605,29 @@ Fixpoint remove {A} (x : nat) (E : env A) : env A :=
   | (S x'), h :: t => h :: remove x' t
   end.
 
-(* Fuck yeah recursion! *)
-Fixpoint remove_fancy {A} (x : nat) (E : env A) (nones : env A) : env A :=
-  match x, E, nones with
-  | _, nil, _ => nil
-  | 0, h :: nil, nones => nil
-  | 0, h :: tail, nones => nones ++ tail
-  | (S x'), (Some t) :: tail, _ => (Some t) :: remove_fancy x' tail nil
-  | (S x'), None :: tail, nones => remove_fancy x' tail (None :: nones)
+Fixpoint remove_fancy {A} (x : nat) (E : env A) (chomp_limit : nat) (nones : env A) : env A :=
+  match x, E, chomp_limit, nones with
+  | _, nil, _, _ => nil
+  (* If we've reached our element, and there are no more following it, drop the nones preceding it *)
+  | 0, h :: nil, _, nones => nil
+  (* Otherwise, if we've reached our element and there are things after it, re-insert the nones *)
+  | 0, h :: tail, _, nones => nones ++ tail
+  (* If we find an intermediate element, clear the nones list and proceed with the recursion *)
+  | (S x'), (Some t) :: tail, _, _ => (Some t) :: remove_fancy x' tail chomp_limit nil
+  (* If we find an intermediate element and the chomp_limit is exhausted we have to leave the None in there *)
+  | (S x'), None :: tail, 0, nones => None :: remove_fancy x' tail 0 nones
+  (* Otherwise if the chomp_limit isn't exhausted we add to the nones list *)
+  | (S x'), None :: tail, (S l'), nones => remove_fancy x' tail l' (None :: nones)
   end.
 
-Notation remove' x E := (remove_fancy x E nil).
+Notation remove' x E l := (remove_fancy x E l nil).
 
 Example remove_single : remove 0 (cons (Some TyBool) nil) = nil.
 Proof.
   auto.
 Qed.
 
-Example remove_single' : remove' 0 (cons (Some TyBool) nil) = nil.
+Example remove_single' : remove' 0 (cons (Some TyBool) nil) 0 = nil.
 Proof.
   auto.
 Qed.
@@ -632,10 +637,15 @@ Proof.
   auto.
 Qed.
 
-Example remove_oob' : remove' 1 (cons (Some TyBool) nil) = cons (Some TyBool) nil.
+Example remove_oob' : remove' 1 (cons (Some TyBool) nil) 0 = cons (Some TyBool) nil.
 Proof. auto. Qed.
 
-Example remove_last : remove' 1 (None :: Some TyBool :: nil) = nil.
+Example remove_last : remove' 1 (None :: Some TyBool :: nil) 1 = nil.
+Proof.
+  auto.
+Qed.
+
+Example remove_limit' : remove' 1 (None :: Some TyBool :: nil) 0 = None :: nil.
 Proof.
   auto.
 Qed.
@@ -701,56 +711,63 @@ Proof with (eauto using lt_S_n).
       f_equal...
 Qed.
 
+(* The proof of this looks like it would be very involved *)
 Lemma insert_none_split_left : forall E E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
-  (exists E1', E1 = raw_insert x None E1' /\ length E1 = length E).
+  (exists E1', E1 = raw_insert x None E1' /\ length E1' = length E).
 Proof.
-  intros E E1 E2 x Split.
-  exists (remove x E1).
-  
-
-
-
-  intros E E1 E2 x Split.
-  generalize dependent E.
-  generalize dependent E1.
-  induction x as [|x']; intros.
-  Case "x = 0".
-    rewrite raw_insert_zero in Split.
-    apply split_none_head in Split. destruct Split as [E1' [E2' [Intro1 Intro2]]].
-    exists E1'.
-    eauto using raw_insert_zero.
-  Case "S x'".
-    rewrite raw_insert_successor in Split.
-    inversion Split; subst.
-    SCase "split_left".
-      subst.
-      admit.
   admit.
 Qed.
+(*
+  intros E E1 E2 x Split.
+  exists (remove' x E1 (length E1 - length E - 1)).
+  induction E1 as [|e1 E1'].
+  Case "E1 = nil".
+    inversion Split. exfalso; eauto using insert_nil.
+  Case "E1 = e1 :: E1'".
+    destruct x.
+*)
 
 Lemma insert_none_split_right : forall E E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
-  (exists E2', E2 = raw_insert x None E2').
+  (exists E2', E2 = raw_insert x None E2' /\ length E2' = length E).
 Proof.
   eauto using insert_none_split_left, split_commute.
 Qed.
 
 Lemma insert_none_split_strip_none : forall E E1 E2 x,
+  length E = length E1 ->
+  length E = length E2 ->
   context_split (raw_insert x None E) (raw_insert x None E1) (raw_insert x None E2) ->
   context_split E E1 E2.
 Proof with eauto.
-  intros E E1 E2 x Split.
-  dependent induction x.
+  intros E E1 E2 x Len1 Len2 Split.
+  generalize dependent E.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction x as [|x']; intros.
   Case "x = 0".
-    repeat rewrite raw_insert_zero in Split.
-    inversion Split...
-  Case "x = S x".
+    repeat rewrite raw_insert_zero in *. inversion Split...
+  Case "x = S x'".
     repeat rewrite raw_insert_successor in Split.
-    inversion Split. subst.
-    (* Feels like the same thing over and over *)
-    admit.
-    admit.
+    inversion Split; subst.
+    (* TODO: deduplicate this *)
+    SCase "split_left".
+      destruct E as [|e E'];
+      destruct E1 as [|e1 E1'];
+      destruct E2 as [|e2 E2']; try solve by inversion...
+      (* Now we have only the cons cases *)
+      simpl in *.
+      replace e2 with (@None ty).
+      replace e1 with e...
+    SCase "split_right".
+      destruct E as [|e E'];
+      destruct E1 as [|e1 E1'];
+      destruct E2 as [|e2 E2']; try solve by inversion...
+      (* Now we have only the cons cases *)
+      simpl in *.
+      replace e1 with (@None ty).
+      replace e2 with e...
 Qed.
 
 Lemma insert_none_split_backwards : forall E E1 E2 x,
@@ -760,8 +777,8 @@ Proof.
   intros E E1 E2 x H.
   assert (SplitL := H).
   assert (SplitR := H).
-  apply insert_none_split_left in SplitL. destruct SplitL as [F1'].
-  apply insert_none_split_right in SplitR. destruct SplitR as [F2'].
+  apply insert_none_split_left in SplitL. destruct SplitL as [F1' [? ?]].
+  apply insert_none_split_right in SplitR. destruct SplitR as [F2' [? ?]].
   exists F1'. exists F2'.
   split. eauto.
   split. eauto.
