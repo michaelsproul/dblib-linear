@@ -960,13 +960,13 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
       subst.
       inversion WT. subst.
       apply insert_none_split_left in AppPreSplit.
-      destruct AppPreSplit as [E1' IntroE1'].
+      destruct AppPreSplit as [E1' [? ?]].
       subst...
     SCase "e2 contains x".
       subst.
       inversion WT. subst.
       apply insert_none_split_right in AppPreSplit.
-      destruct AppPreSplit as [E1' IntroE1'].
+      destruct AppPreSplit as [E1' [? ?]].
       subst...
 Qed.
 
@@ -987,11 +987,17 @@ Lemma context_split_insert : forall E E1 E2 x t,
   context_split (insert x t E) E1 E2 ->
   (exists E1' E2',
     E1 = insert x t E1' /\
-    E2 = raw_insert x None E2') \/
+    E2 = raw_insert x None E2' /\
+    length E1' = length E /\
+    length E1' = length E
+  ) \/
   (exists E1' E2',
     E1 = raw_insert x None E1' /\
-    E2 = insert x t E2').
-Proof with (eauto).
+    E2 = insert x t E2' /\
+    length E1' = length E /\
+    length E2' = length E
+  ).
+Proof with (eauto using raw_insert_zero, context_split_length1, context_split_length2).
   intros E E1 E2 x t Split.
   generalize dependent E.
   generalize dependent E1.
@@ -1000,7 +1006,8 @@ Proof with (eauto).
   Case "x = 0".
     intros.
     rewrite raw_insert_zero in Split.
-    inversion Split; eauto using raw_insert_zero.
+    (* FIXME: Bit messy, eauto used to Just Work here *)
+    inversion Split; subst; [left | right]; eexists; eexists; repeat rewrite raw_insert_zero; repeat split...
   Case "x = S x'".
     intros.
     rewrite raw_insert_successor in Split.
@@ -1012,7 +1019,7 @@ Proof with (eauto).
       apply IHx' in SplitLeft.
       destruct SplitLeft.
       SSCase "left".
-        destruct H as [E1'' [E2'' [? ?]]].
+        destruct H as [E1'' [E2'' [? [? [? ?]]]]].
         exists (lookup 0 E :: E1'').
         exists (None :: E2'').
         repeat rewrite raw_insert_successor.
@@ -1022,6 +1029,7 @@ Proof with (eauto).
         assert (lookup 0 (None :: E2'') = None) as R...
         rewrite R; clear R.
         subst...
+        (* Endless screaming *)
     admit. admit.
 Qed.
 
