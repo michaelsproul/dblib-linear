@@ -960,13 +960,13 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
       subst.
       inversion WT. subst.
       apply insert_none_split_left in AppPreSplit.
-      destruct AppPreSplit as [E1' IntroE1'].
+      destruct AppPreSplit as [E1' [? ?]].
       subst...
     SCase "e2 contains x".
       subst.
       inversion WT. subst.
       apply insert_none_split_right in AppPreSplit.
-      destruct AppPreSplit as [E1' IntroE1'].
+      destruct AppPreSplit as [E1' [? ?]].
       subst...
 Qed.
 
@@ -982,16 +982,21 @@ Proof.
   eauto using typing_insert_None_reverse.
 Qed.
 
-(* TODO: prove this with added bounds on the length *)
 Lemma context_split_insert : forall E E1 E2 x t,
   context_split (insert x t E) E1 E2 ->
   (exists E1' E2',
     E1 = insert x t E1' /\
-    E2 = raw_insert x None E2') \/
+    E2 = raw_insert x None E2' /\
+    length E1' = length E /\
+    length E2' = length E
+  ) \/
   (exists E1' E2',
     E1 = raw_insert x None E1' /\
-    E2 = insert x t E2').
-Proof with (eauto).
+    E2 = insert x t E2' /\
+    length E1' = length E /\
+    length E2' = length E
+  ).
+Proof with (eauto using raw_insert_zero, context_split_length1, context_split_length2).
   intros E E1 E2 x t Split.
   generalize dependent E.
   generalize dependent E1.
@@ -1000,30 +1005,59 @@ Proof with (eauto).
   Case "x = 0".
     intros.
     rewrite raw_insert_zero in Split.
-    inversion Split; eauto using raw_insert_zero.
+    (* FIXME: Bit messy, eauto used to Just Work here *)
+    inversion Split; subst; [left | right]; eexists; eexists; repeat rewrite raw_insert_zero; repeat split...
   Case "x = S x'".
     intros.
     rewrite raw_insert_successor in Split.
-    inversion Split.
-    rename E3 into E1'.
-    rename E4 into E2'.
-    SCase "split left".
-      left.
-      apply IHx' in SplitLeft.
-      destruct SplitLeft.
+    destruct E as [|e E];
+    destruct E1 as [|e1 E1'];
+    destruct E2 as [|e2 E2']; try solve by inversion.
+    SCase "E = nil, E1 = e1 :: E1, E2 = e2 :: E2".
+      replace (lookup 0 (@nil (option ty))) with (@None ty) in Split...
+      simpl in *.
+      inversion Split; subst.
       SSCase "left".
-        destruct H as [E1'' [E2'' [? ?]]].
-        exists (lookup 0 E :: E1'').
+        set (T := SplitLeft).
+        apply IHx' in T...
+        destruct T.
+        SSSCase "left".
+          left.
+          destruct H as [E1'' [E2'' [? [? [? ?]]]]].
+          exists nil. exists nil.
+          repeat rewrite raw_insert_successor.
+          repeat rewrite lookup_zero'.
+          assert (E1'' = nil)...
+            destruct E1''; try solve by inversion...
+          assert (E2'' = nil)...
+            destruct E2''; try solve by inversion...
+          subst...
+        admit. (* Same *)
+      SSCase "right".
+        admit. (* Same *)
+  SCase "all cons".
+    rewrite lookup_zero' in Split.
+    simpl in Split.
+    inversion Split; subst.
+    SSCase "left".
+      set (T := SplitLeft).
+      apply IHx' in T.
+      destruct T.
+      SSSCase "left".
+        destruct H as [E1'' [E2'' [? [? [? ?]]]]].
+        left.
+        exists (e1 :: E1'').
         exists (None :: E2'').
-        repeat rewrite raw_insert_successor.
+        repeat rewrite raw_insert_successor in *.
         simpl.
-        assert (lookup 0 (lookup 0 E :: E1'') = lookup 0 E) as R...
-        rewrite R; clear R.
-        assert (lookup 0 (None :: E2'') = None) as R...
-        rewrite R; clear R.
-        subst...
-    admit. admit.
-Qed.
+        repeat rewrite lookup_zero'.
+        subst.
+        repeat split...
+     SSSCase "right".
+       admit.
+   SSCase "right".
+     admit.
+Qed. (* FIXME: use split_cons to remove duplication *)
 
 Lemma split_cons : forall E E1 E2 e e1 e2,
   context_split (e :: E) (e1 :: E1) (e2 :: E2) ->
@@ -1032,38 +1066,6 @@ Proof with eauto.
   intros E E1 E2 e e1 e2 Split.
   destruct e1; inversion Split; subst...
 Qed.
-
-Lemma split_tails : forall E E1 E2,
-  context_split (lookup 0 E :: tl E) (lookup 0 E1 :: tl E1) (lookup 0 E2 :: tl E2) ->
-  context_split E E1 E2.
-Proof with eauto.
-  intros E E1 E2 Split.
-  induction (E1).
-  Case "nil".
-    simpl in Split.
-    rewrite lookup_empty_None in Split.
-    inversion Split; subst.
-    SCase "split empty".
-      inversion SplitLeft.
-      assert (E = None :: nil).
-        destruct E. simpl in H1.
-  Abort.
-(*
-  induction (lookup 0 E1 :: tl E1) as [|e1 E1'].
-  Case "nil".
-    solve by inversion.
-  Case 
-    inversion Split.
-
-  dependent induction Split.
-  apply IHSplit.
-
-  induction E as [|e E'].
-  Case "E = nil".
-    simpl in Split.
-    rewrite lookup_empty_None in Split.
-    inversion Split; subst. inversion SplitLeft.
-*)
 
 Lemma length_insert' : forall {A} (E1 : env A) (E2 : env A) x v1 v2,
   length (raw_insert x v1 E1) = length (raw_insert x v2 E2) ->
@@ -1191,7 +1193,7 @@ Proof with (eauto using typing_insert_None, typing_insert_none_subst,
     apply context_split_insert in SplitX.
     destruct SplitX as [XLeft | XRight].
     SCase "x on the left".
-      destruct XLeft as [E1 [E2 [? ?]]].
+      destruct XLeft as [E1 [E2 [? [? [? ?]]]]].
       subst E1'.
       subst E2'.
       assert (context_split E12 E1 E2).
@@ -1201,7 +1203,7 @@ Proof with (eauto using typing_insert_None, typing_insert_none_subst,
       assert (exists E01, context_split E E2 E01 /\ context_split E01 E0 E1)
         as [E01 [Split201 SplitE01]]...
     SCase "x on the right".
-      destruct XRight as [E1 [E2 [? ?]]].
+      destruct XRight as [E1 [E2 [? [? [? ?]]]]].
       subst E1'.
       subst E2'.
       assert (context_split E12 E1 E2).
