@@ -989,7 +989,7 @@ Lemma context_split_insert : forall E E1 E2 x t,
     E1 = insert x t E1' /\
     E2 = raw_insert x None E2' /\
     length E1' = length E /\
-    length E1' = length E
+    length E2' = length E
   ) \/
   (exists E1' E2',
     E1 = raw_insert x None E1' /\
@@ -1011,6 +1011,26 @@ Proof with (eauto using raw_insert_zero, context_split_length1, context_split_le
   Case "x = S x'".
     intros.
     rewrite raw_insert_successor in Split.
+    destruct E as [|e E];
+    destruct E1 as [|e1 E1'];
+    destruct E2 as [|e2 E2']; try solve by inversion.
+    SCase "E = nil, E1 = e1 :: E1, E2 = e2 :: E2".
+      simpl in *.
+      replace (lookup 0 (@nil (option ty))) with (@None ty) in Split...
+      inversion Split; subst.
+      SSCase "left".
+        apply IHx' in SplitLeft...
+        destruct SplitLeft.
+        SSSCase "left".
+          left.
+          destruct H as [E1'' [E2'' [? [? [? ?]]]]].
+          exists (None :: E1'). exists (None :: E2').
+          repeat rewrite raw_insert_successor.
+          repeat rewrite lookup_zero'.
+          simpl.
+        repeat destruct SplitLeft.
+        
+
     inversion Split.
     rename E3 into E1'.
     rename E4 into E2'.
