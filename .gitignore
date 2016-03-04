@@ -1,2 +1,6 @@
 *.glob
 *.vo
+*.d
+CoqMakefile
+*.aux
+*.bak

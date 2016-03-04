@@ -1,9 +1,13 @@
-.PHONY: clean
+MAKEFLAGS=--no-print-directory
 
-all: Util.vo
+all: CoqMakefile
+	make -f $^
 
-%.vo: %.v
-	coqc $^
+CoqMakefile: _CoqProject
+	coq_makefile -f $^ -o $@
 
-clean:
-	rm -f *.vo *.glob
+clean: CoqMakefile
+	make --quiet -f CoqMakefile clean
+
+purge: clean
+	rm -f CoqMakefile

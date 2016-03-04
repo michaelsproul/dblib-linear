@@ -1,0 +1,6 @@
+-R . L3
+Syntax.v
+Util.v
+DbLib/DeBruijn.v
+DbLib/DblibTactics.v
+DbLib/Environments.v
