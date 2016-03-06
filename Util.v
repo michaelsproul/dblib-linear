@@ -1,3 +1,6 @@
+Require Import Coq.Lists.List.
+Require Export Coq.Program.Equality.
+
 (* Decision procedure for nat equality, and some theorems about it. *)
 Theorem eq_nat_dec : forall (n m : nat), {n = m} + {n <> m}.
 Proof.
@@ -39,7 +42,8 @@ Tactic Notation "solve" "by" "inversion" :=
   solve by inversion 1.
 
 (* Case markers also nicked from SF *)
-Require String. Open Scope string_scope.
+Require String.
+Open Scope string_scope.
 
 Ltac move_to_top x :=
   match reverse goal with
@@ -65,3 +69,30 @@ Tactic Notation "SSSSCase" constr(name) := Case_aux SSSSCase name.
 Tactic Notation "SSSSSCase" constr(name) := Case_aux SSSSSCase name.
 Tactic Notation "SSSSSSCase" constr(name) := Case_aux SSSSSSCase name.
 Tactic Notation "SSSSSSSCase" constr(name) := Case_aux SSSSSSSCase name.
+
+(* Hint database for use with auto *)
+(* Note, the _x suffix is used for automation-oriented tactics *)
+Create HintDb l3.
+
+(* Miscellaneous lemmas for us with auto *)
+Lemma list_head_eq : forall {A} (h1 : A) h2 t1 t2,
+  h1 :: t1 = h2 :: t2 ->
+  h1 = h2.
+Proof. congruence. Qed.
+Hint Resolve list_head_eq : l3.
+
+Lemma zero_length_nil : forall {A} (l : list A),
+  length l = 0 ->
+  l = nil.
+Proof with auto.
+  intros.
+  destruct l; try solve by inversion...
+Qed.
+Hint Resolve zero_length_nil : l3.
+
+(* f_equal is great *)
+Hint Resolve f_equal : l3.
+
+(* Specialised version of auto *)
+Ltac boom := auto with l3.
+Ltac eboom := eauto with l3.

@@ -6,8 +6,12 @@ all: CoqMakefile
 CoqMakefile: _CoqProject
 	coq_makefile -f $^ -o $@
 
+
 clean: CoqMakefile
 	make --quiet -f CoqMakefile clean
 
 purge: clean
 	rm -f CoqMakefile
+
+%:
+	make -f CoqMakefile $@.vo
