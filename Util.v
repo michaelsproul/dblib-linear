@@ -79,7 +79,6 @@ Lemma list_head_eq : forall {A} (h1 : A) h2 t1 t2,
   h1 :: t1 = h2 :: t2 ->
   h1 = h2.
 Proof. congruence. Qed.
-Hint Resolve list_head_eq : l3.
 
 Lemma zero_length_nil : forall {A} (l : list A),
   length l = 0 ->
@@ -88,11 +87,12 @@ Proof with auto.
   intros.
   destruct l; try solve by inversion...
 Qed.
+
 Hint Resolve zero_length_nil : l3.
 
 (* f_equal is great *)
 Hint Resolve f_equal : l3.
 
-(* Specialised version of auto *)
+(* Specialised versions of auto *)
 Ltac boom := auto with l3.
 Ltac eboom := eauto with l3.

@@ -49,6 +49,8 @@ Proof.
     eboom.
 Qed.
 
+Hint Resolve empty_lookup : l3.
+
 Lemma empty_lookup_x : forall {A} x e (E : env A),
   is_empty E ->
   e = lookup x E ->
@@ -102,7 +104,7 @@ Lemma empty_insert_injective : forall {A} x1 x2 (t1 : A) t2 E1 E2,
   is_empty E1 ->
   insert x1 t1 E1 = insert x2 t2 E2 ->
   x1 = x2 /\ t1 = t2 /\ is_empty E2.
-Proof with eboom.
+Proof with (eauto using list_head_eq with l3).
   intros A x1 x2 t1 t2 E1 E2 Empty Insert.
   generalize dependent x2.
   generalize dependent E1.

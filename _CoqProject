@@ -5,6 +5,7 @@ DbLib/Environments.v
 Context.v
 Empty.v
 Environment.v
+Progress.v
 SmallStepSemantics.v
 Syntax.v
 Typing.v

@@ -3,5 +3,6 @@
 *.d
 *.aux
 *.bak
+*.swp
 \#*
 CoqMakefile
