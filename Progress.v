@@ -3,7 +3,7 @@ Require Import Syntax.
 Require Import SmallStepSemantics.
 Require Import Empty.
 Require Export Context.
-Require Import Environments.
+Require Import Environment.
 
 Lemma step_app1_x : forall s e1 e2,
   (exists s' e', step s e1 s' e') ->

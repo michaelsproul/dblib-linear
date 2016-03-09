@@ -27,7 +27,8 @@ Proof with boom.
   induction Split...
 Qed.
 
-Hint Resolve split_commute : l3.
+(* NB: split_commute can create loops, so we only apply it at most once using auto *)
+Hint Immediate split_commute.
 
 (* In the proof of the lemma below, the proofs for the left and right cases are almost the same.
    The proofs differ only in the first elements of their new amalgamated contexts (E02).
@@ -114,24 +115,12 @@ Lemma split_all_right : forall {A} (E : env A) E1 E2,
   E = E2.
 Proof. eboom. Qed.
 
-(* Possible idiocy *)
+(* XXX: This lemma is possibly useless, it's just faking a rewrite *)
 Lemma insert_zero_x : forall A o (E : env A) E1 E2,
   context_split E (raw_insert 0 o E1) E2 ->
   context_split E (o :: E1) E2.
 Proof with boom.
   intros A P o E.
-  rewrite raw_insert_zero...
-Qed.
-
-Hint Immediate insert_zero_x.
-
-(* Examples *)
-
-Example context_split_ex1 : exists E,
-  context_split (insert 0 TyBool nil) (insert 0 TyBool nil) E /\
-  is_empty E.
-Proof with eboom.
-  exists (None :: nil)...
   rewrite raw_insert_zero...
 Qed.
 
@@ -151,9 +140,26 @@ Lemma split_empty_left : forall {A} (E : env A) E1 E2,
   is_empty E ->
   context_split E E1 E2 ->
   is_empty E1.
-Proof with eauto.
+Proof with eboom.
   intros A E E1 E2 Empty Split.
   apply split_empty in Split; destruct Split...
 Qed.
 
-Hint Resolve split_empty_left : l3.
+Hint Immediate split_empty_left : l3.
+
+Lemma split_empty_right : forall A (E : env A) E1 E2,
+  is_empty E ->
+  context_split E E1 E2 ->
+  is_empty E2.
+Proof. eauto using split_empty_left, split_commute. Qed.
+
+Hint Immediate split_empty_right : l3.
+
+(* Examples *)
+Example context_split_ex1 : exists E,
+  context_split (insert 0 TyBool nil) (insert 0 TyBool nil) E /\
+  is_empty E.
+Proof with eboom.
+  exists (None :: nil)...
+  rewrite raw_insert_zero...
+Qed.
