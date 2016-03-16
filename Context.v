@@ -63,6 +63,8 @@ Proof with boom.
   induction Split; simpl...
 Qed.
 
+Hint Resolve context_split_length1 : l3.
+
 Lemma context_split_length1_x : forall {A} (E : env A) E1 E2 l,
   context_split E E1 E2 ->
   length E = l ->

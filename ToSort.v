@@ -201,6 +201,7 @@ Proof.
   eauto using typing_insert_None_reverse.
 Qed.
 
+(* TODO, prove split E E1' E2' *)
 Lemma context_split_insert : forall E E1 E2 x t,
   context_split (insert x t E) E1 E2 ->
   (exists E1' E2',
