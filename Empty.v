@@ -20,6 +20,22 @@ Qed.
 
 Hint Resolve is_empty_x : l3.
 
+(* Emptyness in terms of repeat *)
+Lemma empty_repeat : forall A (E : env A),
+  is_empty E ->
+  E = repeat (length E) None.
+Proof with (simpl; boom).
+  intros A E Empty.
+  induction Empty...
+Qed.
+
+Lemma empty_repeat_none : forall A n,
+  is_empty (repeat n None : env A).
+Proof with (simpl; boom).
+  intros.
+  induction n...
+Qed.
+
 Example is_empty_ex1 : is_empty (None :: None :: nil : env ty).
 Proof. boom. Qed.
 
@@ -124,3 +140,4 @@ Proof with (eauto using list_head_eq with l3).
     SCase "E2 = e2 :: E2'".
       repeat split...
 Qed.
+
