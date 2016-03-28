@@ -4,53 +4,6 @@
 (* Substitution helper lemmas *)
 (* -------------------------- *)
 
-Lemma typing_insert_None : forall L E e t x,
-  L; E |- e ~: t ->
-  L; raw_insert x None E |- shift x e ~: t.
-Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split).
-  intros L E e t x WT.
-  generalize dependent x.
-  induction WT; intros y; simpl_lift_goal...
-  Case "Var".
-    destruct (le_lt_dec y x); lift_idx.
-    SCase "y <= x".
-      rewrite insert_insert...
-    SCase "y > x".
-      destruct y as [|y']; try solve by inversion...
-      rewrite <- insert_insert...
-  Case "Abs".
-    constructor.
-    rewrite insert_insert...
-Qed.
-
-(* TODO: Prove the lemmas like this in DbLib (replace their equivalents) *)
-Lemma raw_insert_eq_insert_1:
-  forall A x a1 a2 (e1 e2 : env A),
-  raw_insert x a1 e1 = raw_insert x a2 e2 ->
-  a1 = a2.
-Proof. admit. Qed.
-
-Lemma raw_insert_eq_insert_3:
-  forall A x1 x2 a1 a2 (e1 e2 : env A),
-  raw_insert x1 a1 e1 = raw_insert x2 a2 e2 ->
-  x1 <> x2 ->
-  exists e y1 y2,
-  e1 = raw_insert y1 a2 e /\
-  e2 = raw_insert y2 a1 e /\
-  shift x1 y1 = x2 /\
-  y2 = (if le_gt_dec x1 y1 then x1 else x1 - 1).
-Proof.
-  admit.
-Qed.
-
-Lemma raw_insert_swap : forall A (E1 : env A) E2 x1 x2 o1 o2,
-  raw_insert x1 o1 E1 = raw_insert x2 o2 E2 ->
-  x1 <= x2 ->
-  exists E0, E1 = raw_insert (x2 - 1) o2 E0 /\ E2 = raw_insert x1 o1 E0.
-Proof.
-  admit.
-Qed.
-
 Opaque unlift.
 
 Lemma lift_var : forall x t e, shift x (TAbs t e) = TAbs t (shift (S x) (e)).
@@ -74,50 +27,7 @@ Proof with auto.
   simpl_unlift_goal...
 Qed.
 
-Lemma typing_insert_None_reverse : forall L E e t x,
-  L; raw_insert x None E |- e ~: t ->
-  L; E |- unshift x e ~: t.
-Proof with (eauto using insert_none_is_empty_inversion).
-  intros L E e t x WT.
-  generalize dependent x.
-  generalize dependent t.
-  generalize dependent E.
-  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
-  Case "TVar".
-    intros.
-    Transparent unlift.
-    simpl.
-    destruct (le_gt_dec x n).
-    SCase "x <= n".
-      inversion WT; subst.
-      rename E0 into E1.
-      rename E into E2.
-      symmetry in H1.
-      apply raw_insert_swap in H1...
-      decompose record H1.
-      subst...
-    SCase "x > n".
-      inversion WT; subst.
-      apply raw_insert_swap in H1.
-      decompose record H1.
-      subst...
-      omega.
-  Case "TAbs".
-    intros.
-    simpl_unlift_goal.
-    inversion WT; subst.
-    econstructor.
-    apply IHe.
-    rewrite<- insert_insert...
-    omega.
-  Case "TApp".
-    intros.
-    simpl_unlift_goal.
-    inversion WT; subst.
-    apply insert_none_split_backwards in AppPreSplit.
-    destruct AppPreSplit as [E1' [E2' [E1'Intro [E2'Intro SplitE]]]].
-    subst...
-Qed.
+
 
 Lemma subst_unshift : forall x e v,
   ~ contains_var x e ->

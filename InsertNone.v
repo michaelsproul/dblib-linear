@@ -1,58 +1,16 @@
 (* Lemmas about inserting None into a typing context *)
 Require Import DbLib.Environments.
-Require Import Environments.
 Require Import List.
 Require Import Typing.
 Require Import Syntax.
 Require Import Empty.
 Require Import Context.
 Require Import Environment.
+Require Import DbLib.DeBruijn.
+Require Import Arith.
 Import ListNotations.
 
 Transparent lookup.
-
-Check (nil; nil |- TTrue ~: TyBool).
-
-Fixpoint repeat {A} (n : nat) (e : A) : list A :=
-  match n with
-  | 0 => []
-  | S n' => e :: repeat n' e
-  end.
-
-Lemma repeat_length : forall A n (e : A),
-  length (repeat n e) = n.
-Proof with (simpl; auto).
-  intros.
-  induction n as [|n']...
-Qed.
-
-Lemma repeat_none_empty : forall A n,
-  is_empty (repeat n None : env A).
-Proof with (simpl; boom).
-  intros.
-  induction n...
-Qed.
-
-Lemma repeat_app : forall A n (e : A),
-  repeat (S n) e = repeat n e ++ [e].
-Proof.
-  intros.
-  induction n as [|n'].
-  Case "n = 0". auto.
-  Case "n = S n'".
-    replace (repeat (S (S n')) e) with (e :: repeat (S n') e).
-    rewrite IHn' at 1.
-    auto.
-    auto.
-Qed.
-
-Lemma is_empty_def : forall A (E : env A),
-  is_empty E ->
-  E = repeat (length E) None.
-Proof with (simpl; boom).
-  intros A E Empty.
-  induction Empty...
-Qed.
 
 Lemma insert_none_def : forall A x (E : env A),
   x >= length E ->
@@ -99,6 +57,8 @@ Proof with eboom.
     constructor.
     apply IHx' with (E := tl E)...
 Qed.
+
+Hint Resolve insert_none_is_empty : l3.
 
 Lemma insert_none_is_empty_inversion : forall {A} (E : env A) x,
   is_empty (raw_insert x None E) -> is_empty E.
@@ -402,3 +362,67 @@ Proof.
   subst. eauto using insert_none_split_strip_none.
 Qed.
 *)
+
+Lemma typing_insert_None : forall L E e t x,
+  L; E |- e ~: t ->
+  L; raw_insert x None E |- shift x e ~: t.
+Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split with l3).
+  intros L E e t x WT.
+  generalize dependent x.
+  induction WT; intros y; simpl_lift_goal...
+  Case "Var".
+    destruct (le_lt_dec y x); lift_idx.
+    SCase "y <= x".
+      rewrite insert_insert...
+    SCase "y > x".
+      destruct y as [|y']; try solve by inversion...
+      rewrite <- insert_insert...
+  Case "Abs".
+    constructor.
+    rewrite insert_insert...
+Qed. 
+
+Lemma typing_insert_None_reverse : forall L E e t x,
+  L; raw_insert x None E |- e ~: t ->
+  L; E |- drop x e ~: t.
+Proof with (eauto using insert_none_is_empty_inversion).
+  intros L E e t x WT.
+  generalize dependent x.
+  generalize dependent t.
+  generalize dependent E.
+  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
+  Case "TVar".
+    intros.
+    Transparent lower.
+    simpl.
+    destruct (le_gt_dec x n).
+    SCase "x <= n".
+      inversion WT; subst.
+      rename E0 into E1.
+      rename E into E2.
+      symmetry in H1.
+      apply raw_insert_swap in H1...
+      decompose record H1.
+      subst...
+    SCase "x > n".
+      inversion WT; subst.
+      apply raw_insert_swap in H1.
+      decompose record H1.
+      subst...
+      omega.
+  Case "TAbs".
+    intros.
+    simpl_unlift_goal.
+    inversion WT; subst.
+    econstructor.
+    apply IHe.
+    rewrite<- insert_insert...
+    omega.
+  Case "TApp".
+    intros.
+    simpl_unlift_goal.
+    inversion WT; subst.
+    apply insert_none_split_backwards in AppPreSplit.
+    destruct AppPreSplit as [E1' [E2' [E1'Intro [E2'Intro SplitE]]]].
+    subst...
+Qed.
