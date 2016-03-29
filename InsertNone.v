@@ -8,6 +8,7 @@ Require Import Context.
 Require Import Environment.
 Require Import DbLib.DeBruijn.
 Require Import Arith.
+Require Import DbLibExt.
 Import ListNotations.
 
 Transparent lookup.
@@ -73,6 +74,8 @@ Proof with eboom.
     inversion Empty; subst.
     destruct E as [|e E']...
 Qed.
+
+(* Hint Resolve insert_none_is_empty_inversion : l3. *)
 
 Lemma insert_none_split : forall A (E : env A) E1 E2 x,
   context_split E E1 E2 ->
@@ -224,7 +227,8 @@ Lemma insert_none_split_backwards : forall A (E : env A) E1 E2 x,
     E1 = raw_insert x None E1' /\
     length E1' = length E /\
     E2 = raw_insert x None E2' /\
-    length E2' = length E.
+    length E2' = length E /\
+    context_split E E1' E2'.
 Proof with eboom.
   intros A E E1 E2 x Split.
   destruct (Compare_dec.le_gt_dec (length E) x) as [OutOfBounds | InBounds].
@@ -238,38 +242,6 @@ Proof with eboom.
     assert (length E2' = length E) as Len2...
     repeat rewrite insert_none_def; try omega.
     rewrite Len1; rewrite Len2...
-  (* This hideous junk is required to explicitly use firstn *)
-  (*
-    (* There are two main lengths involved, one long and one short *)
-    set (lengthShort := length E).
-    set (lengthLong := lengthShort + S (x - length E)).
-    (* We take the first lengthShort elements of E1 as the base for the insert *)
-    exists (firstn lengthShort E1).
-    (* The length of the first part of the context split is long by definiton *)
-    assert (length (E ++ repeat (S (x - length E)) None) = lengthLong) as LengthELong.
-      rewrite app_length.
-      rewrite repeat_length.
-      solve [auto].
-    (* We also know that the length of E1 is long, from the context split *)
-    assert (length E1 = lengthLong) as LengthE1.
-      subst lengthLong.
-      rewrite <- LengthELong.
-      solve [eboom].
-    (* The proof about the length of firstn is easy *)
-    assert (length (firstn lengthShort E1) = lengthShort) as LengthChop.
-      rewrite firstn_length.
-      rewrite LengthE1.
-      subst lengthShort lengthLong.
-      rewrite min_plus_r; solve [reflexivity].
-    split; [ | solve [auto]].
-    (* Now, the main proof *)
-    rewrite insert_none_def.
-    rewrite LengthChop.
-    eapply split_app in Split.
-    decompose record Split.
-    exact H.
-    auto. rewrite LengthChop. auto.
-  *)
   Case "length E > x".
     generalize dependent E.
     generalize dependent E1.
@@ -380,20 +352,20 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
   Case "Abs".
     constructor.
     rewrite insert_insert...
-Qed. 
+Qed.
 
 Lemma typing_insert_None_reverse : forall L E e t x,
   L; raw_insert x None E |- e ~: t ->
-  L; E |- drop x e ~: t.
-Proof with (eauto using insert_none_is_empty_inversion).
+  L; E |- unshift x e ~: t.
+Proof with (eauto using insert_none_is_empty_inversion with l3).
+  Transparent lower.
   intros L E e t x WT.
   generalize dependent x.
   generalize dependent t.
   generalize dependent E.
-  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion].
+  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion with l3].
   Case "TVar".
     intros.
-    Transparent lower.
     simpl.
     destruct (le_gt_dec x n).
     SCase "x <= n".
@@ -412,7 +384,7 @@ Proof with (eauto using insert_none_is_empty_inversion).
       omega.
   Case "TAbs".
     intros.
-    simpl_unlift_goal.
+    simpl_lower_goal.
     inversion WT; subst.
     econstructor.
     apply IHe.
@@ -420,9 +392,10 @@ Proof with (eauto using insert_none_is_empty_inversion).
     omega.
   Case "TApp".
     intros.
-    simpl_unlift_goal.
+    simpl_lower_goal.
     inversion WT; subst.
     apply insert_none_split_backwards in AppPreSplit.
-    destruct AppPreSplit as [E1' [E2' [E1'Intro [E2'Intro SplitE]]]].
+    destruct AppPreSplit as [E1' [E2' [? [? [? ?]]]]].
     subst...
+   econstructor.
 Qed.
