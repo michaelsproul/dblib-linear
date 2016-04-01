@@ -7,20 +7,34 @@ Require Import List.
 Require Import Empty.
 
 (* Context splitting similar to Liam OConnor's approach *)
+Inductive split_single {A} : option A -> option A -> option A -> Prop :=
+  | split_none : split_single None None None
+  | split_left (v : A) : split_single (Some v) (Some v) None
+  | split_right (v : A) : split_single (Some v) None (Some v).
+
+Hint Constructors split_single : l3.
+
 Inductive context_split {A} : env A -> env A -> env A -> Prop :=
   | split_nil : context_split nil nil nil
-  | split_left E E1 E2 v
-      (SplitLeft : context_split E E1 E2) :
-      context_split (v :: E) (v :: E1) (None :: E2)
-  | split_right E E1 E2 v
-      (SplitRight : context_split E E1 E2) :
-      context_split (v :: E) (None :: E1) (v :: E2).
+  | split_cons E E1 E2 v v1 v2
+      (SplitElem : split_single v v1 v2)
+      (SplitPre : context_split E E1 E2) :
+      context_split (v :: E) (v1 :: E1) (v2 :: E2).
 
 Hint Constructors context_split : l3.
 
 (* Basic lemmas about context splitting *)
 
-Lemma split_commute : forall {A} (E : env A) E1 E2,
+Lemma split_single_commute : forall A (v : option A) v1 v2,
+  split_single v v1 v2 -> split_single v v2 v1.
+Proof with boom.
+  intros A v v1 v2 Split.
+  induction Split...
+Qed.
+
+Hint Immediate split_single_commute : l3.
+
+Lemma split_commute : forall A (E : env A) E1 E2,
   context_split E E1 E2 -> context_split E E2 E1.
 Proof with boom.
   intros A E E1 E2 Split.
@@ -28,20 +42,22 @@ Proof with boom.
 Qed.
 
 (* NB: split_commute can create loops, so we only apply it at most once using auto *)
-Hint Immediate split_commute.
+Hint Immediate split_commute : l3.
 
-(* In the proof of the lemma below, the proofs for the left and right cases are almost the same.
-   The proofs differ only in the first elements of their new amalgamated contexts (E02).
-   The first elements for each of the inversion cases are passed as the arguments v1 and v2. *)
-Ltac split_rotate_crush v1 v2 E E0 :=
-  inversion Split12 as [| ? E1' E2' | ? E1' E2'];
-  subst;
-  assert (exists ENew, context_split E E1' ENew /\ context_split ENew E0 E2') as [ENew [EN1 EN2]];
-  boom;
-  [exists (v1 :: ENew); eboom | exists (v2 :: ENew); eboom ].
+Lemma split_single_rotate : forall A (v : option A) v0 v12 v1 v2,
+  split_single v v0 v12 ->
+  split_single v12 v1 v2 ->
+  (exists v02, split_single v v1 v02 /\ split_single v02 v0 v2).
+Proof with eboom.
+  intros A v v0 v12 v1 v2 Split012 Split12.
+  destruct v; destruct v0; destruct v1; destruct v2; destruct v12;
+  inversion Split012; inversion Split12; eboom.
+Qed.
+
+Hint Resolve split_single_rotate : l3.
 
 (* Draw a tree! *)
-Lemma split_rotate : forall {A} (E : env A) E0 E12 E1 E2,
+Lemma split_rotate : forall A (E : env A) E0 E12 E1 E2,
   context_split E E0 E12 ->
   context_split E12 E1 E2 ->
   (exists E02, context_split E E1 E02 /\ context_split E02 E0 E2).
@@ -49,13 +65,17 @@ Proof with eboom.
   intros A E E0 E12 E1 E2 SplitE012 Split12.
   generalize dependent E1.
   generalize dependent E2.
-  induction SplitE012 as [| E E0 E12 | E E0 E12]; intros.
+  induction SplitE012 as [| E E0 E12 v v0 v12]; intros.
   Case "empty". inversion Split12; subst...
-  Case "left". split_rotate_crush v v E E0.
-  Case "right". split_rotate_crush (@None A) v E E0.
+  Case "cons".
+    destruct E1 as [|v1 E1']; destruct E2 as [|v2 E2']; try solve by inversion.
+    inversion Split12; subst.
+    apply IHSplitE012 in SplitPre.
+    destruct SplitPre as [E02 [? ?]].
+    assert (exists v02, split_single v v1 v02 /\ split_single v02 v0 v2) as [v02 [? ?]]...
 Qed.
 
-Lemma context_split_length1 : forall {A} (E : env A) E1 E2,
+Lemma context_split_length1 : forall A (E : env A) E1 E2,
   context_split E E1 E2 ->
   length E = length E1.
 Proof with boom.
@@ -65,7 +85,7 @@ Qed.
 
 Hint Resolve context_split_length1 : l3.
 
-Lemma context_split_length1_x : forall {A} (E : env A) E1 E2 l,
+Lemma context_split_length1_x : forall A (E : env A) E1 E2 l,
   context_split E E1 E2 ->
   length E = l ->
   length E1 = l.
@@ -79,7 +99,7 @@ Qed.
 Hint Resolve context_split_length1_x.
 
 (* ASIDE: Note how much more verbose the above proof is if it's done by hand. *)
-Lemma context_split_length1_x_bad : forall {A} (E : env A) E1 E2 l,
+Lemma context_split_length1_x_bad : forall A (E : env A) E1 E2 l,
   context_split E E1 E2 ->
   length E = l ->
   length E1 = l.
@@ -93,25 +113,34 @@ Proof.
     assert (length E = l - 1); [ omega | assert (length E1 = l - 1); eauto; omega ] ..].
 Qed.
 
-Example context_split_length2 : forall {A} (E : env A) E1 E2 l,
+Example context_split_length2 : forall A (E : env A) E1 E2 l,
   context_split E E1 E2 ->
   length E = l ->
   length E2 = l.
 Proof. eboom. Qed.
 
-Lemma split_all_left : forall {A} (E : env A) E1 E2,
+Lemma split_single_left : forall A (v : option A) v1,
+  split_single v v1 None ->
+  v = v1.
+Proof with reflexivity.
+  intros A v v1 Split.
+  inversion Split; subst...
+Qed.
+
+Lemma split_all_left : forall A (E : env A) E1 E2,
   is_empty E2 ->
   context_split E E1 E2 ->
   E = E1.
-Proof with eboom.
+Proof with (eauto using split_single_left, f_equal).
   intros A E E1 E2 Empty Split.
-  induction Split; solve [ boom |
-    inversion Empty; subst; eboom ].
+  induction Split...
+  inversion Empty; subst.
+  replace v1 with v...
 Qed.
 
 Hint Resolve split_all_left : l3.
 
-Lemma split_all_right : forall {A} (E : env A) E1 E2,
+Lemma split_all_right : forall A (E : env A) E1 E2,
   is_empty E1 ->
   context_split E E1 E2 ->
   E = E2.
@@ -128,17 +157,19 @@ Qed.
 
 (* Context splitting and emptyness *)
 
-Lemma split_empty : forall {A} (E : env A) E1 E2,
+Lemma split_empty : forall A (E : env A) E1 E2,
   is_empty E ->
   context_split E E1 E2 ->
   is_empty E1 /\ is_empty E2.
-Proof.
+Proof with eboom.
   intros A E E1 E2 Empty Split.
-  induction Split; solve [ boom |
-    inversion Empty; subst; assert (is_empty E1 /\ is_empty E2) as [EmptyE1 EmptyE2]; eboom].
+  induction Split...
+  inversion Empty; subst.
+  inversion SplitElem; subst.
+  assert (is_empty E1 /\ is_empty E2) as [EmptyE1 EmptyE2]...
 Qed.
 
-Lemma split_empty_left : forall {A} (E : env A) E1 E2,
+Lemma split_empty_left : forall A (E : env A) E1 E2,
   is_empty E ->
   context_split E E1 E2 ->
   is_empty E1.

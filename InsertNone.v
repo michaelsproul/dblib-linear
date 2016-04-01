@@ -31,12 +31,6 @@ Proof with (simpl; eboom).
       replace (x' - 0) with x'; try omega...
 Qed.
 
-Lemma insert_none_empty_def : forall A x (E : env A),
-  is_empty E ->
-  raw_insert x None E = repeat (S (mymax (length E) x)) None.
-Proof.
-Abort.
-
 Lemma insert_none_is_empty : forall {A} (E : env A) E' x,
   is_empty E ->
   raw_insert x None E = E' ->
@@ -89,7 +83,7 @@ Proof with eboom.
     repeat rewrite raw_insert_zero; eboom.
   Case "x = S x'".
     repeat rewrite raw_insert_successor.
-    inversion Split as [|E' E1' E2'|E' E1' E2']...
+    inversion Split as [|E' E1' E2']...
 Qed.
 
 Lemma split_none_head : forall A (E : env A) E1 E2,
@@ -97,7 +91,7 @@ Lemma split_none_head : forall A (E : env A) E1 E2,
   exists E1' E2', E1 = None :: E1' /\ E2 = None :: E2'.
 Proof with eboom.
   intros A E E1 E2 Split.
-  inversion Split; subst...
+  inversion Split; inversion SplitElem; subst...
 Qed.
 
 Lemma split_insert_none_left_lookup : forall A (E : env A) E1 E2 x,
@@ -111,12 +105,12 @@ Proof with eboom.
   induction x as [| x']; intros.
   Case "x = 0".
     rewrite raw_insert_zero in *.
-    inversion Split...
+    inversion Split; inversion SplitElem...
   Case "x = S x'".
     rewrite raw_insert_successor in Split.
     destruct E1 as [|e1 E1']...
     replace (lookup (S x') (e1 :: E1')) with (lookup x' E1')...
-    inversion Split; subst...
+    inversion Split; inversion SplitElem; subst...
 Qed.
 
 Lemma split_insert_none_right_lookup : forall A (E : env A) E1 E2 x,
@@ -165,30 +159,19 @@ Proof.
     SCase "E = []".
       exists nil. exists nil.
       simpl in *.
-      inversion Split; [ inversion SplitLeft | inversion SplitRight]; subst; eboom.
+      inversion Split; inversion SplitPre; inversion SplitElem; subst; eboom.
     SCase "E = e :: E'".
       destruct E2 as [|e2 E2s]; try solve by inversion.
       (* E2 is now e2 :: E2s *)
       simpl in Split.
       inversion Split; subst.
-      (* TODO: Dedup *)
-      SSCase "split left".
-        apply IHE1s in SplitLeft.
-        destruct SplitLeft as [E1' [E2' [? [? ?]]]].
-        exists (e1 :: E1').
-        exists (None :: E2').
-        subst.
-        eboom.
-      SSCase "split right".
-        apply IHE1s in SplitRight.
-        destruct SplitRight as [E1' [E2' [? [? ?]]]].
-        exists (None :: E1').
-        exists (e2 :: E2').
-        subst.
-        eboom.
-Qed.
-
-
+      apply IHE1s in SplitPre.
+      destruct SplitPre as [E1' [E2' [? [? ?]]]].
+      exists (e1 :: E1').
+      exists (e2 :: E2').
+      subst.
+      eboom.
+Qed. (* NOTE: benefits of split_single demonstrated here *)
 
 Lemma split_app : forall A (E : env A) E1 E2 n,
   context_split (E ++ repeat n None) E1 E2 ->
@@ -236,24 +219,10 @@ Proof with eboom.
   Case "x = S x'".
     repeat rewrite raw_insert_successor in Split.
     inversion Split; subst.
-    (* TODO: deduplicate this *)
-    SCase "split_left".
-      destruct E as [|e E'];
-      destruct E1 as [|e1 E1'];
-      destruct E2 as [|e2 E2']; try solve by inversion...
-      (* Now we have only the cons cases *)
-      simpl in *.
-      replace e2 with (@None A).
-      replace e1 with e...
-    SCase "split_right".
-      destruct E as [|e E'];
-      destruct E1 as [|e1 E1'];
-      destruct E2 as [|e2 E2']; try solve by inversion...
-      (* Now we have only the cons cases *)
-      simpl in *.
-      replace e1 with (@None A).
-      replace e2 with e...
-Qed.
+    destruct E as [|e E'];
+    destruct E1 as [|e1 E1'];
+    destruct E2 as [|e2 E2']; try solve by inversion...
+Qed. (* NOTE: more massive benefits of split_single *)
 
 Hint Resolve insert_none_split_strip_none : l3.
 
@@ -286,7 +255,7 @@ Proof with eboom.
     SCase "x = 0".
       repeat rewrite raw_insert_zero in *.
       destruct E1 as [|e1 E1']; destruct E2 as [|e2 E2']; try solve by inversion.
-      inversion Split; subst;
+      inversion Split; inversion SplitElem; subst;
         exists E1', E2';
         repeat rewrite raw_insert_zero;
         repeat split...
@@ -296,21 +265,13 @@ Proof with eboom.
       rewrite raw_insert_successor in Split.
       simpl in Split.
       inversion Split; subst.
-      (* TODO: dedup, should really use split on single elems *)
-      SSCase "split left".
-        apply IHx' in SplitLeft; simpl in *; try omega.
-        destruct SplitLeft as [E1'' [E2'' [? [? [? [? ?]]]]]].
-        exists (e1 :: E1''), (None :: E2'').
-        subst; simpl.
-        inversion Split; subst;
-        repeat split...
-      SSCase "split right".
-        apply IHx' in SplitRight; simpl in *; try omega.
-        destruct SplitRight as [E1'' [E2'' [? [? [? [? ?]]]]]].
-        exists (None :: E1''), (e2 :: E2'').
-        subst; simpl;
-        repeat split...
-Qed.
+      apply IHx' in SplitPre; simpl in *; try omega.
+      destruct SplitPre as [E1'' [E2'' [? [? [? [? ?]]]]]].
+      exists (e1 :: E1''), (e2 :: E2'').
+      subst; simpl.
+      inversion Split; subst;
+      repeat split...
+Qed. (* NOTE: more benefits of split_single *)
 
 (* Do we need this any more? *)
 (*
@@ -322,7 +283,7 @@ Proof.
 Qed.
 *)
 
-Lemma typing_insert_None : forall L E e t x,
+Lemma typing_insert_none : forall L E e t x,
   L; E |- e ~: t ->
   L; raw_insert x None E |- shift x e ~: t.
 Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split with l3).
@@ -341,7 +302,7 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
     rewrite insert_insert...
 Qed.
 
-Lemma typing_insert_None_reverse : forall L E e t x,
+Lemma typing_insert_none_reverse : forall L E e t x,
   L; raw_insert x None E |- e ~: t ->
   L; E |- unshift x e ~: t.
 Proof with (eauto using insert_none_is_empty_inversion with l3).
