@@ -100,6 +100,20 @@ Lemma typing_insert_none_subst : forall L E e x junk t,
   L; E |- subst junk x e ~: t.
 Proof.
   intros L E e x junk t WT.
+  generalize dependent x.
+  generalize dependent E.
+  generalize dependent junk.
+  generalize dependent t.
+  induction e; try solve [
+    intros; inversion WT; subst; simpl_subst_goal;
+    eauto using insert_none_is_empty_inversion with l3].
+  Case "TVar".
+    intros. simpl_subst_goal.
+    unfold subst_idx.
+    destruct (lt_eq_lt_dec n x) as [[Less | Eq] | Greater].
+    SCase "less".
+      rewrite insert_none_def in WT; try omega.
+
   remember WT as H eqn:Junk; clear Junk.
   apply typing_without_var in H.
   apply subst_unshift with (v := junk) in H.
@@ -186,7 +200,7 @@ Lemma substitution: forall L E2 e2 t1 t2 x,
   forall E E1 e1, L; E1 |- e1 ~: t1 ->
   context_split E E1 E2 ->
   L; E |- (subst e1 x e2) ~: t2.
-Proof with (eauto using typing_insert_none, typing_insert_none_subst,
+Proof with (eauto using typing_insert_none,
             split_rotate  with l3).
   intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
   dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using empty_insert_contra].
@@ -223,6 +237,10 @@ Proof with (eauto using typing_insert_none, typing_insert_none_subst,
       assert (context_split E12 E2 E1); [eboom | ].
       assert (exists E01, context_split E E2 E01 /\ context_split E01 E0 E1)
         as [E01 [Split201 SplitE01]]...
+      econstructor.
+      eassumption.
+      eapply IHWT2_1.
+      eboom. eassumption. .
     SCase "x on the right".
       destruct XRight as [E1 [E2 [? [? [? [? ?]]]]]].
       subst E1'.
