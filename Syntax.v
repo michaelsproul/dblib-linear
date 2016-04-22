@@ -10,7 +10,7 @@ Inductive name := Name : nat -> name.
 (* No distinction between location variables and constants. *)
 Inductive loc := Loc : nat -> loc.
 
-Inductive ty : Type :=
+Inductive ty : Set :=
   | TyUnit
   (*
   | TyProduct : ty -> ty -> ty
@@ -29,7 +29,7 @@ Inductive ty : Type :=
 Hint Constructors ty : l3.
 
 (* Terms, or 'expressions' in L3 parlance. *)
-Inductive term : Type :=
+Inductive term : Set :=
   (* () *)
   | TUnit
   | TTrue
@@ -89,15 +89,13 @@ Instance Var_term : Var term := {
    We also need a similar function for location traversal and substituion. *)
 Fixpoint traverse_term (f : nat -> nat -> term) l t :=
   match t with
-  | TUnit => TUnit
-  | TTrue => TTrue
-  | TFalse => TFalse
   | TVar x =>
       f l x
   | TAbs t e =>
       TAbs t (traverse_term f (1 + l) e)
   | TApp e1 e2 =>
       TApp (traverse_term f l e1) (traverse_term f l e2)
+  | _ => t
   end.
 
 Instance Traverse_term : Traverse term term := {
@@ -132,5 +130,5 @@ Qed.
 (* Store type for location variable val*)
 (* Note: All terms stored in contexts are closed. *)
 (* FIXME: Could use another environment here. *)
-Definition store : Type :=
+Definition store : Set :=
   loc -> option term.
