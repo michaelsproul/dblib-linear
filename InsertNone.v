@@ -269,7 +269,6 @@ Proof with eboom.
       destruct SplitPre as [E1'' [E2'' [? [? [? [? ?]]]]]].
       exists (e1 :: E1''), (e2 :: E2'').
       subst; simpl.
-      inversion Split; subst;
       repeat split...
 Qed. (* NOTE: more benefits of split_single *)
 
