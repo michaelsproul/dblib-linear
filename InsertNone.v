@@ -91,6 +91,7 @@ Proof with eboom.
 Qed.
 
 (* Universal *)
+(* NOT USED *)
 Lemma split_none_head : forall A (E : env A) E1 E2,
   context_split (None :: E) E1 E2 ->
   exists E1' E2', E1 = None :: E1' /\ E2 = None :: E2'.
@@ -100,6 +101,7 @@ Proof with eboom.
 Qed.
 
 (* Universal *)
+(* NOT USED, but nice to have *)
 Lemma split_insert_none_left_lookup : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   lookup x E1 = None.
@@ -120,32 +122,13 @@ Proof with eboom.
 Qed.
 
 (* Universal *)
+(* NOT USED *)
 Lemma split_insert_none_right_lookup : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   lookup x E2 = None.
 Proof.
   eauto using split_insert_none_left_lookup, split_commute.
 Qed.
-
-Lemma min_plus_r : forall n m,
-  min n (n + m) = n.
-Proof.
-  intros.
-  rewrite <- Plus.plus_0_r with (n := n) at 1.
-  rewrite Min.plus_min_distr_l.
-  auto.
-Qed.
-
-Lemma firstn_all : forall A (E : list A) l,
-  l = length E ->
-  firstn l E = E.
-Proof with (subst; simpl; auto using f_equal).
-  intros.
-  generalize dependent l.
-  induction E; intros...
-Qed.
-
-Hint Resolve firstn_all : l3.
 
 (* Universal *)
 Lemma split_app_single : forall A (E : env A) E1 E2,
@@ -283,15 +266,6 @@ Proof with eboom.
       repeat split...
 Qed. (* NOTE: more benefits of split_single *)
 
-(* Do we need this any more? *)
-(*
-Lemma insert_none_split_right : forall E E1 E2 x,
-  context_split (raw_insert x None E) E1 E2 ->
-  (exists E2', E2 = raw_insert x None E2' /\ length E2' = length E).
-Proof.
-  eauto using insert_none_split_left, split_commute.
-Qed.
-*)
 
 (* Lang-specific *)
 Lemma typing_insert_none : forall L E e t x,
