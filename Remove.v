@@ -33,7 +33,7 @@ Ltac omega_contra := exfalso; simpl in *; omega.
 
 Check lt_S_n.
 
-Lemma insert_remove : forall {A} (E : env A) x,
+Lemma insert_remove : forall A (E : env A) x,
   x < length E ->
   raw_insert x (lookup x E) (remove x E) = E.
 Proof with (eauto using lt_S_n with l3).

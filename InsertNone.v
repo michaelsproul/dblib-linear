@@ -33,7 +33,7 @@ Proof with (simpl; eboom).
 Qed.
 
 (* Universal *)
-Lemma insert_none_is_empty : forall {A} (E : env A) E' x,
+Lemma insert_none_is_empty : forall A (E : env A) E' x,
   is_empty E ->
   raw_insert x None E = E' ->
   is_empty E'.
@@ -56,7 +56,7 @@ Qed.
 Hint Resolve insert_none_is_empty : l3.
 
 (* Universal *)
-Lemma insert_none_is_empty_inversion : forall {A} (E : env A) x,
+Lemma insert_none_is_empty_inversion : forall A (E : env A) x,
   is_empty (raw_insert x None E) -> is_empty E.
 Proof with eboom.
   intros A E x Empty.

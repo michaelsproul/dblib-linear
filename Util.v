@@ -76,12 +76,12 @@ Tactic Notation "SSSSSSSCase" constr(name) := Case_aux SSSSSSSCase name.
 Create HintDb l3.
 
 (* Miscellaneous lemmas for us with auto *)
-Lemma list_head_eq : forall {A} (h1 : A) h2 t1 t2,
+Lemma list_head_eq : forall A (h1 : A) h2 t1 t2,
   h1 :: t1 = h2 :: t2 ->
   h1 = h2.
 Proof. congruence. Qed.
 
-Lemma zero_length_nil : forall {A} (l : list A),
+Lemma zero_length_nil : forall A (l : list A),
   length l = 0 ->
   l = nil.
 Proof with auto.

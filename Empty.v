@@ -12,7 +12,7 @@ Inductive is_empty {A} : env A -> Prop :=
 Hint Constructors is_empty : l3.
 
 (* Indirection lemma for use with automation *)
-Lemma is_empty_x : forall {A} (e : option A) E,
+Lemma is_empty_x : forall A (e : option A) E,
   e = None -> is_empty E -> is_empty (e :: E).
 Proof.
   intros; subst; boom.
@@ -39,7 +39,7 @@ Qed.
 Example is_empty_ex1 : is_empty (None :: None :: nil : env ty).
 Proof. boom. Qed.
 
-Lemma empty_tl : forall {A} (E : env A),
+Lemma empty_tl : forall A (E : env A),
   is_empty E ->
   is_empty (tl E).
 Proof.
@@ -50,7 +50,7 @@ Qed.
 
 Hint Resolve empty_tl : l3.
 
-Lemma empty_lookup : forall {A} x (E : env A),
+Lemma empty_lookup : forall A x (E : env A),
   is_empty E ->
   lookup x E = None.
 Proof.
@@ -67,7 +67,7 @@ Qed.
 
 Hint Resolve empty_lookup : l3.
 
-Lemma empty_lookup_x : forall {A} x e (E : env A),
+Lemma empty_lookup_x : forall A x e (E : env A),
   is_empty E ->
   e = lookup x E ->
   e = None.
@@ -77,7 +77,7 @@ Qed.
 
 Hint Resolve empty_lookup_x : l3.
 
-Lemma empty_lookup_contra : forall {A} x (E : env A) t,
+Lemma empty_lookup_contra : forall A x (E : env A) t,
   is_empty E ->
   lookup x E = Some t ->
   False.
@@ -90,7 +90,7 @@ Qed.
 
 Hint Resolve empty_lookup_contra : l3.
 
-Lemma empty_insert_contra : forall {A} x (t : A) E E',
+Lemma empty_insert_contra : forall A x (t : A) E E',
   E = insert x t E' ->
   is_empty E ->
   False.
@@ -116,7 +116,7 @@ Qed.
 
 Hint Resolve empty_insert_contra : l3.
 
-Lemma empty_insert_injective : forall {A} x1 x2 (t1 : A) t2 E1 E2,
+Lemma empty_insert_injective : forall A x1 x2 (t1 : A) t2 E1 E2,
   is_empty E1 ->
   insert x1 t1 E1 = insert x2 t2 E2 ->
   x1 = x2 /\ t1 = t2 /\ is_empty E2.
