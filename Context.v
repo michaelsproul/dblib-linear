@@ -44,6 +44,74 @@ Qed.
 (* NB: split_commute can create loops, so we only apply it at most once using auto *)
 Hint Immediate split_commute : l3.
 
+Lemma split_single_assoc : forall A (v v0 v1 v2 v12 : option A),
+  split_single v v0 v12 ->
+  split_single v12 v1 v2 ->
+  (exists v01, split_single v v01 v2 /\ split_single v01 v0 v1).
+Proof.
+  intros A v v0 v1 v2 v12 Split Split12.
+  destruct v; destruct v0; destruct v1; destruct v2; destruct v12;
+  inversion Split12; inversion Split; eboom.
+Qed.
+
+Hint Resolve split_single_assoc : l3.
+
+Lemma split_assoc : forall A (E E0 E1 E2 E12 : env A),
+  context_split E E0 E12 ->
+  context_split E12 E1 E2 ->
+  (exists E01, context_split E E01 E2 /\ context_split E01 E0 E1).
+Proof with eboom.
+  intros A E E0 E1 E2 E12 SplitE Split12.
+  generalize dependent E1.
+  generalize dependent E2.
+  induction SplitE as [|E' E0' E12' v v0 v12]; intros.
+  Case "empty". inversion Split12; subst...
+  Case "cons".
+    inversion Split12 as [|? E1' E2' ? v1 v2 SplitSingle12 Split12'].
+    subst.
+    apply IHSplitE in Split12'.
+    destruct Split12' as [E01' [? ?]].
+    assert (exists v01, split_single v v01 v2 /\ split_single v01 v0 v1) as [v01 [? ?]]...
+Qed.
+
+Hint Resolve split_assoc : l3.
+
+Lemma split_assoc_rev : forall A (E E0 E1 E2 E01 : env A),
+  context_split E E01 E2 ->
+  context_split E01 E0 E1 ->
+  (exists E12, context_split E E0 E12 /\ context_split E12 E1 E2).
+Proof with eboom.
+  intros A E E0 E1 E2 E01 SplitE Split01.
+  assert (exists E21, context_split E E21 E0 /\ context_split E21 E2 E1) as [E21 [? ?]]...
+Qed.
+
+Hint Resolve split_assoc_rev : l3.
+
+(* Draw a tree! *)
+Lemma split_rotate : forall A (E : env A) E0 E12 E1 E2,
+  context_split E E0 E12 ->
+  context_split E12 E1 E2 ->
+  (exists E02, context_split E E1 E02 /\ context_split E02 E0 E2).
+Proof with eboom.
+  intros A E E0 E12 E1 E2 SplitE Split12.
+  assert (exists E02, context_split E E02 E1 /\ context_split E02 E0 E2) as [? [? ?]]...
+Qed.
+
+Lemma split_swap : forall A (E E1 E2 E1a E1b E2a E2b : env A),
+  context_split E E1 E2 ->
+  context_split E1 E1a E1b ->
+  context_split E2 E2a E2b ->
+  (exists Ea Eb,
+    context_split E Ea Eb /\
+    context_split Ea E1a E2a /\
+    context_split Eb E1b E2b).
+Proof with eboom.
+  intros A E E1 E2 E1a E1b E2a E2b SplitE Split1 Split2.
+  assert (exists E12a, context_split E E12a E2b /\ context_split E12a E1 E2a) as [E12a [? ?]]...
+  assert (exists Ea, context_split E12a E1b Ea /\ context_split Ea E1a E2a) as [Ea [? ?]]...
+  assert (exists Eb, context_split E Ea Eb /\ context_split Eb E1b E2b) as [Eb [? ?]]...
+Qed.
+
 Lemma split_single_rotate : forall A (v : option A) v0 v12 v1 v2,
   split_single v v0 v12 ->
   split_single v12 v1 v2 ->
@@ -55,25 +123,6 @@ Proof with eboom.
 Qed.
 
 Hint Resolve split_single_rotate : l3.
-
-(* Draw a tree! *)
-Lemma split_rotate : forall A (E : env A) E0 E12 E1 E2,
-  context_split E E0 E12 ->
-  context_split E12 E1 E2 ->
-  (exists E02, context_split E E1 E02 /\ context_split E02 E0 E2).
-Proof with eboom.
-  intros A E E0 E12 E1 E2 SplitE012 Split12.
-  generalize dependent E1.
-  generalize dependent E2.
-  induction SplitE012 as [| E E0 E12 v v0 v12]; intros.
-  Case "empty". inversion Split12; subst...
-  Case "cons".
-    destruct E1 as [|v1 E1']; destruct E2 as [|v2 E2']; try solve by inversion.
-    inversion Split12; subst.
-    apply IHSplitE012 in SplitPre.
-    destruct SplitPre as [E02 [? ?]].
-    assert (exists v02, split_single v v1 v02 /\ split_single v02 v0 v2) as [v02 [? ?]]...
-Qed.
 
 Lemma context_split_length1 : forall A (E : env A) E1 E2,
   context_split E E1 E2 ->
@@ -126,6 +175,11 @@ Proof with reflexivity.
   intros A v v1 Split.
   inversion Split; subst...
 Qed.
+
+Lemma split_single_right : forall A (v : option A) v1,
+  split_single v None v1 ->
+  v = v1.
+Proof. eauto using split_single_commute, split_single_left. Qed.
 
 Lemma split_all_left : forall A (E : env A) E1 E2,
   is_empty E2 ->
