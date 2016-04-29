@@ -220,6 +220,7 @@ Qed. (* NOTE: more massive benefits of split_single *)
 Hint Resolve insert_none_split_strip_none : l3.
 
 (* Universal *)
+(* This was one of the most difficult to prove *)
 Lemma insert_none_split_backwards : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   exists E1' E2',

@@ -116,6 +116,7 @@ Qed.
 
 Hint Immediate length_zero_nil : l3.
 
+(* UNIVERSAL *)
 Lemma context_split_insert : forall A (E : env A) E1 E2 x t,
   context_split (insert x t E) E1 E2 ->
   (exists E1' E2',
