@@ -2,9 +2,6 @@ Require Import DbLib.Environments.
 Require Import List.
 Require Export Syntax.
 
-Definition loc_ctxt := env unit.
-Definition ty_ctxt := env ty.
-
 (* DbLib utils *)
 Lemma lookup_zero_nil : forall A,
   lookup 0 [] = @None A.

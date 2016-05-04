@@ -6,31 +6,31 @@ Require Import Environment.
 Require Import Context.
 Require Import Empty.
 
-Reserved Notation "L ';' E '|-' t '~:' T" (at level 40).
+Reserved Notation "E '|-' e '~:' t" (at level 40).
 
-Inductive has_type : loc_ctxt -> ty_ctxt -> term -> ty -> Prop :=
-  | HasTyUnit L E
+Inductive has_type : (env ty) -> term -> ty -> Prop :=
+  | HasTyUnit E
       (UnitEmpty : is_empty E) :
-      L; E |- TUnit ~: TyUnit
-  | HasTyTrue L E
+      E |- TUnit ~: TyUnit
+  | HasTyTrue E
       (TrueEmpty : is_empty E) :
-      L; E |- TTrue ~: TyBool
-  | HasTyFalse L E
+      E |- TTrue ~: TyBool
+  | HasTyFalse E
       (FalseEmpty : is_empty E) :
-      L; E |- TFalse ~: TyBool
-  | HasTyVar L E x t
+      E |- TFalse ~: TyBool
+  | HasTyVar E x t
       (VarPre : is_empty E) :
-      L; insert x t E |- TVar x ~: t
-  | HasTyAbs L E e t1 t2
-      (AbsPre : L; (insert 0 t1 E) |- e ~: t2) :
-      L; E |- TAbs t1 e ~: (TyFun t1 t2)
-  | HasTyApp L E E1 E2 e1 e2 t1 t2
+      insert x t E |- TVar x ~: t
+  | HasTyAbs E e t1 t2
+      (AbsPre : (insert 0 t1 E) |- e ~: t2) :
+      E |- TAbs t1 e ~: (TyFun t1 t2)
+  | HasTyApp E E1 E2 e1 e2 t1 t2
       (AppPreSplit : context_split E E1 E2)
-      (AppPreWT1 : L; E1 |- e1 ~: TyFun t1 t2)
-      (AppPreWT2 : L; E2 |- e2 ~: t1) :
-      L; E  |- TApp e1 e2 ~: t2
+      (AppPreWT1 : E1 |- e1 ~: TyFun t1 t2)
+      (AppPreWT2 : E2 |- e2 ~: t1) :
+      E  |- TApp e1 e2 ~: t2
 
-where "L ';' E '|-' t '~:' T" := (has_type L E t T).
+where "E '|-' e '~:' t" := (has_type E e t).
 
 Hint Constructors has_type : l3.
 

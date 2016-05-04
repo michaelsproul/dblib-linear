@@ -13,15 +13,13 @@ Require Import Subst.
 Require Import SmallStepSemantics.
 Import ListNotations.
 
-Theorem preservation : forall L E e e' s s' t,
-  is_empty L ->
+Theorem preservation : forall E e e' s s' t,
   is_empty E ->
-  L; E |- e ~: t ->
+  E |- e ~: t ->
   step s e s' e' ->
-  L; E |- e' ~: t.
+  E |- e' ~: t.
 Proof with eboom.
-  intros L E e e' s s' t EmptyL EmptyE WT ST.
-  generalize dependent L.
+  intros E e e' s s' t EmptyE WT ST.
   generalize dependent E.
   generalize dependent t.
   induction ST.

@@ -53,11 +53,11 @@ Proof with (eauto using f_equal, not_contains_Abs,
     rewrite IHe1...
 Qed.
 
-Lemma typing_without_var : forall L E e x t,
-  L; raw_insert x None E |- e ~: t -> ~ contains_var x e.
+Lemma typing_without_var : forall E e x t,
+  raw_insert x None E |- e ~: t -> ~ contains_var x e.
 Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
   unfold not.
-  intros L E e x t WT Contains.
+  intros E e x t WT Contains.
   generalize dependent E.
   generalize dependent x.
   generalize dependent t.
@@ -95,11 +95,11 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
       subst...
 Qed.
 
-Lemma typing_insert_none_subst : forall L E e x junk t,
-  L; raw_insert x None E |- e ~: t ->
-  L; E |- subst junk x e ~: t.
+Lemma typing_insert_none_subst : forall E e x junk t,
+  raw_insert x None E |- e ~: t ->
+  E |- subst junk x e ~: t.
 Proof.
-  intros L E e x junk t WT.
+  intros E e x junk t WT.
   remember WT as H eqn:Junk; clear Junk.
   apply typing_without_var in H.
   apply subst_unshift with (v := junk) in H.
@@ -183,14 +183,14 @@ Proof with eboom.
       simpl; subst; repeat split...
 Qed.
 
-Lemma substitution: forall L E2 e2 t1 t2 x,
-  L; insert x t1 E2 |- e2 ~: t2 ->
-  forall E E1 e1, L; E1 |- e1 ~: t1 ->
+Lemma substitution: forall E2 e2 t1 t2 x,
+  insert x t1 E2 |- e2 ~: t2 ->
+  forall E E1 e1, E1 |- e1 ~: t1 ->
   context_split E E1 E2 ->
-  L; E |- (subst e1 x e2) ~: t2.
+  E |- (subst e1 x e2) ~: t2.
 Proof with (eauto using typing_insert_none, typing_insert_none_subst,
             split_rotate  with l3).
-  intros L E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
+  intros E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
   dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using empty_insert_contra].
   Case "Var".
     (* XXX: naming of x is weird here *)
@@ -206,7 +206,7 @@ Proof with (eauto using typing_insert_none, typing_insert_none_subst,
     eapply IHWT2 with (t3 := t1) (E1 := (None :: E1)).
     SCase "inserts are equal". insert_insert.
     SCase "e1 well-typed under shifting".
-      assert (L; raw_insert 0 None E1 |- shift 0 e1 ~: t1)...
+      assert (raw_insert 0 None E1 |- shift 0 e1 ~: t1)...
     SCase "context_split is sensible".
       rewrite raw_insert_zero; rewrite raw_insert_zero...
   Case "App".

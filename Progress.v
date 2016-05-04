@@ -15,13 +15,13 @@ Qed.
 
 Hint Resolve step_app1_x : l3.
 
-Lemma fun_value_is_abs : forall L E e t1 t2,
+Lemma fun_value_is_abs : forall E e t1 t2,
   is_empty E ->
-  L; E |- e ~: TyFun t1 t2 ->
+  E |- e ~: TyFun t1 t2 ->
   value e ->
   (exists e', e = TAbs t1 e').
 Proof.
-  intros L E e t1 t2 Empty WT Val.
+  intros E e t1 t2 Empty WT Val.
   destruct e; try (solve by inversion).
   Case "e is a variable, impossible with an empty context".
     inversion WT; subst; exfalso; eauto 2 with l3.
@@ -32,14 +32,14 @@ Qed.
 
 Hint Resolve fun_value_is_abs : l3.
 
-Lemma value_app1_x : forall L E1 s e1 e2 t1 t2,
+Lemma value_app1_x : forall E1 s e1 e2 t1 t2,
   is_empty E1 ->
-  L; E1 |- e1 ~: TyFun t1 t2 ->
+  E1 |- e1 ~: TyFun t1 t2 ->
   value e1 ->
   (exists s' e2', step s e2 s' e2') \/ value e2 ->
   (exists s' e'', step s (TApp e1 e2) s' e'').
 Proof with eboom.
-  intros L E1 s e1 e2 t1 t2 Empty1 WT1 Val1 [Step2 | Val2].
+  intros E1 s e1 e2 t1 t2 Empty1 WT1 Val1 [Step2 | Val2].
   Case "e2 steps".
     decompose record Step2...
   Case "e2 is also a value".
@@ -51,13 +51,12 @@ Qed.
 Hint Resolve value_app1_x : l3.
 
 (* Proof of progress! *)
-Theorem progress : forall L E e s t,
-  is_empty L ->
+Theorem progress : forall E e s t,
   is_empty E ->
-  L; E |- e ~: t ->
+  E |- e ~: t ->
   (exists s' e', step s e s' e') \/ value e.
 Proof with eboom.
-  intros L E e s t EmptyL EmptyE WT.
+  intros E e s t EmptyE WT.
   induction WT...
   Case "Application".
     assert (is_empty E1 /\ is_empty E2) as [? ?]...

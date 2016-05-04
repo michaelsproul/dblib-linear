@@ -278,11 +278,11 @@ Qed. (* NOTE: more benefits of split_single *)
 
 
 (* Lang-specific *)
-Lemma typing_insert_none : forall L E e t x,
-  L; E |- e ~: t ->
-  L; raw_insert x None E |- shift x e ~: t.
+Lemma typing_insert_none : forall E e t x,
+  E |- e ~: t ->
+  raw_insert x None E |- shift x e ~: t.
 Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split with l3).
-  intros L E e t x WT.
+  intros E e t x WT.
   generalize dependent x.
   induction WT; intros y; simpl_lift_goal...
   Case "Var".
@@ -298,12 +298,12 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
 Qed.
 
 (* Lang-specific *)
-Lemma typing_insert_none_reverse : forall L E e t x,
-  L; raw_insert x None E |- e ~: t ->
-  L; E |- unshift x e ~: t.
+Lemma typing_insert_none_reverse : forall E e t x,
+  raw_insert x None E |- e ~: t ->
+  E |- unshift x e ~: t.
 Proof with (eauto using insert_none_is_empty_inversion with l3).
   Transparent lower.
-  intros L E e t x WT.
+  intros E e t x WT.
   generalize dependent x.
   generalize dependent t.
   generalize dependent E.
@@ -313,17 +313,18 @@ Proof with (eauto using insert_none_is_empty_inversion with l3).
     simpl.
     destruct (le_gt_dec x n).
     SCase "x <= n".
+      (* FIXME: naming is a pain here *)
       inversion WT; subst.
       rename E0 into E1.
       rename E into E2.
-      symmetry in H1.
-      apply raw_insert_swap in H1...
-      decompose record H1.
+      symmetry in H0.
+      apply raw_insert_swap in H0...
+      decompose record H0.
       subst...
     SCase "x > n".
       inversion WT; subst.
-      apply raw_insert_swap in H1.
-      decompose record H1.
+      apply raw_insert_swap in H0.
+      decompose record H0.
       subst...
       omega.
   Case "TAbs".
