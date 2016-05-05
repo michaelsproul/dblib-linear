@@ -126,9 +126,3 @@ Instance TraverseVarIsIdentity_term : @TraverseVarIsIdentity term _ term _.
 Proof.
   constructor. prove_traverse_var_is_identity.
 Qed.
-
-(* Store type for location variable val*)
-(* Note: All terms stored in contexts are closed. *)
-(* FIXME: Could use another environment here. *)
-Definition store : Set :=
-  loc -> option term.

@@ -5,11 +5,11 @@ Require Import Empty.
 Require Export Context.
 Require Import Environment.
 
-Lemma step_app1_x : forall s e1 e2,
-  (exists s' e', step s e1 s' e') ->
-  exists s' e'', step s (TApp e1 e2) s' e''.
+Lemma step_app1_x : forall e1 e2,
+  (exists e', step e1 e') ->
+  exists e'', step (TApp e1 e2) e''.
 Proof with eboom.
-  intros s e1 e2 Step1.
+  intros e1 e2 Step1.
   decompose record Step1...
 Qed.
 
@@ -32,14 +32,14 @@ Qed.
 
 Hint Resolve fun_value_is_abs : l3.
 
-Lemma value_app1_x : forall E1 s e1 e2 t1 t2,
+Lemma value_app1_x : forall E1 e1 e2 t1 t2,
   is_empty E1 ->
   E1 |- e1 ~: TyFun t1 t2 ->
   value e1 ->
-  (exists s' e2', step s e2 s' e2') \/ value e2 ->
-  (exists s' e'', step s (TApp e1 e2) s' e'').
+  (exists e2', step e2 e2') \/ value e2 ->
+  (exists e'', step (TApp e1 e2) e'').
 Proof with eboom.
-  intros E1 s e1 e2 t1 t2 Empty1 WT1 Val1 [Step2 | Val2].
+  intros E1 e1 e2 t1 t2 Empty1 WT1 Val1 [Step2 | Val2].
   Case "e2 steps".
     decompose record Step2...
   Case "e2 is also a value".
@@ -51,12 +51,12 @@ Qed.
 Hint Resolve value_app1_x : l3.
 
 (* Proof of progress! *)
-Theorem progress : forall E e s t,
+Theorem progress : forall E e t,
   is_empty E ->
   E |- e ~: t ->
-  (exists s' e', step s e s' e') \/ value e.
+  (exists e', step e e') \/ value e.
 Proof with eboom.
-  intros E e s t EmptyE WT.
+  intros E e t EmptyE WT.
   induction WT...
   Case "Application".
     assert (is_empty E1 /\ is_empty E2) as [? ?]...
