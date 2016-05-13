@@ -278,6 +278,7 @@ Qed. (* NOTE: more benefits of split_single *)
 
 
 (* Lang-specific *)
+(* Required by the lambda abstraction case in the substitution lemma *)
 Lemma typing_insert_none : forall E e t x,
   E |- e ~: t ->
   raw_insert x None E |- shift x e ~: t.
