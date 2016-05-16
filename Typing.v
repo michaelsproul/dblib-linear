@@ -29,6 +29,11 @@ Inductive has_type : (env ty) -> term -> ty -> Prop :=
       (AppPreWT1 : E1 |- e1 ~: TyFun t1 t2)
       (AppPreWT2 : E2 |- e2 ~: t1) :
       E  |- TApp e1 e2 ~: t2
+  | HasTyPair E E1 E2 e1 e2 t1 t2
+      (PairPreSplit : context_split E E1 E2)
+      (PairPreWT1 : E1 |- e1 ~: t1)
+      (PairPreWT2 : E2 |- e2 ~: t2) :
+      E |- TPair e1 e2 ~: (TyProduct t1 t2)
 
 where "E '|-' e '~:' t" := (has_type E e t).
 
@@ -42,7 +47,12 @@ Inductive contains_var : nat -> term -> Prop :=
   | ContainsApp1 n e1 e2 (CVApp1Pre : contains_var n e1)
       : contains_var n (TApp e1 e2)
   | ContainsApp2 n e1 e2 (CVApp2Pre : contains_var n e2)
-      : contains_var n (TApp e1 e2).
+      : contains_var n (TApp e1 e2)
+  | ContainsPair1 n e1 e2 (CVPair1Pre : contains_var n e1)
+      : contains_var n (TPair e1 e2)
+  | ContainsPair2 n e1 e2 (CVPair2Pre : contains_var n e2)
+      : contains_var n (TPair e1 e2)
+.
 
 Hint Constructors contains_var : l3.
 

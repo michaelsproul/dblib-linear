@@ -12,9 +12,7 @@ Inductive loc := Loc : nat -> loc.
 
 Inductive ty : Set :=
   | TyUnit
-  (*
   | TyProduct : ty -> ty -> ty
-  *)
   | TyFun : ty -> ty -> ty
   (*
   | TyBang : ty -> ty
@@ -34,11 +32,11 @@ Inductive term : Set :=
   | TUnit
   | TTrue
   | TFalse
+  | TPair : term -> term -> term
   (* let () = e1 in e2 *)
   (*
   | TLetUnit : term -> term -> term
   (* (x, y) *)
-  | TPair : term -> term -> term
   (* let (x1, x2) = e1 in e2 *)
   | TLetPair : name -> name -> term -> term
   *)
@@ -74,6 +72,7 @@ Inductive value : term -> Prop :=
   | VAbs : forall t e, value (TAbs t e)
   | VTrue : value TTrue
   | VFalse : value TFalse
+  | VPair e1 e2 (ValLeft : value e1) (ValRight : value e2) : value (TPair e1 e2)
 .
 
 Hint Constructors value : l3.
