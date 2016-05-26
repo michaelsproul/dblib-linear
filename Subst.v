@@ -79,19 +79,11 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
     inversion Contains; subst...
   Case "TApp".
     intros.
-    inversion Contains.
-    (* TODO: deduplicate *)
-    SCase "e1 contains x".
-      subst.
-      inversion WT. subst.
-      apply insert_none_split_backwards in AppPreSplit.
-      decompose record AppPreSplit.
-      subst...
-    SCase "e2 contains x".
-      subst.
-      inversion WT. subst.
-      apply insert_none_split_backwards in AppPreSplit.
-      decompose record AppPreSplit.
+    inversion Contains;
+      subst;
+      inversion WT; subst;
+      apply insert_none_split_backwards in AppPreSplit;
+      decompose record AppPreSplit;
       subst...
 Qed.
 
