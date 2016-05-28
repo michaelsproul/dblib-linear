@@ -23,7 +23,7 @@ Proof with (simpl; eboom).
   Case "x = 0".
     destruct E as [|e E'].
     SCase "E = []".
-      rewrite raw_insert_zero...
+      simpl...
     SCase "E = e :: E'".
       solve by inversion.
   Case "x = S x'".
