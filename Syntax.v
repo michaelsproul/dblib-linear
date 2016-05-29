@@ -12,6 +12,7 @@ Inductive loc := Loc : nat -> loc.
 
 Inductive ty : Set :=
   | TyUnit
+  | TyPrim : String.string -> ty
   (*
   | TyProduct : ty -> ty -> ty
   *)
@@ -23,17 +24,15 @@ Inductive ty : Set :=
   | TyForAll : ty -> ty
   | TyEx : ty -> ty
   *)
-  | TyBool
 .
 
 Hint Constructors ty : l3.
 
 (* Terms, or 'expressions' in L3 parlance. *)
 Inductive term : Set :=
-  (* () *)
   | TUnit
-  | TTrue
-  | TFalse
+  (* () *)
+  | TPrim : String.string -> term
   (* let () = e1 in e2 *)
   (*
   | TLetUnit : term -> term -> term
@@ -70,10 +69,9 @@ Hint Constructors term : l3.
 
 Inductive value : term -> Prop :=
   | VUnit : value TUnit
+  | VPrim : forall s, value (TPrim s)
   | VVar : forall x, value (TVar x)
   | VAbs : forall t e, value (TAbs t e)
-  | VTrue : value TTrue
-  | VFalse : value TFalse
 .
 
 Hint Constructors value : l3.

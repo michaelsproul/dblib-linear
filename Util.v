@@ -1,5 +1,5 @@
-Require Import Coq.Lists.List.
 Require Export Coq.Program.Equality.
+Require Import List.
 Export ListNotations.
 
 (* Decision procedure for nat equality, and some theorems about it. *)

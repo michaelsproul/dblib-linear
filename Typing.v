@@ -10,14 +10,11 @@ Reserved Notation "E '|-' e '~:' t" (at level 40).
 
 Inductive has_type : (env ty) -> term -> ty -> Prop :=
   | HasTyUnit E
-      (UnitEmpty : is_empty E) :
+      (UnitPre : is_empty E) :
       E |- TUnit ~: TyUnit
-  | HasTyTrue E
-      (TrueEmpty : is_empty E) :
-      E |- TTrue ~: TyBool
-  | HasTyFalse E
-      (FalseEmpty : is_empty E) :
-      E |- TFalse ~: TyBool
+  | HasTyPrim E s t
+      (PrimPre : is_empty E) :
+      E |- TPrim s ~: TyPrim t
   | HasTyVar E x t
       (VarPre : is_empty E) :
       insert x t E |- TVar x ~: t
@@ -46,7 +43,7 @@ Inductive contains_var : nat -> term -> Prop :=
 
 Hint Constructors contains_var : l3.
 
-Example contains_var_ex1 : contains_var 0 (TAbs TyBool (TVar 1)).
+Example contains_var_ex1 : contains_var 0 (TAbs (TyPrim "bool") (TVar 1)).
 Proof. boom. Qed.
 
 Lemma not_contains_Abs : forall x t e,

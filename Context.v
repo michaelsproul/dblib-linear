@@ -244,7 +244,7 @@ Hint Immediate split_empty_right : l3.
 
 (* Examples *)
 Example context_split_ex1 : exists E,
-  context_split (insert 0 TyBool nil) (insert 0 TyBool nil) E /\
+  context_split (insert 0 (TyPrim "bool") nil) (insert 0 (TyPrim "bool") nil) E /\
   is_empty E.
 Proof with eboom.
   exists (None :: nil)...
