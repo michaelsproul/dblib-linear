@@ -14,3 +14,5 @@ Proof. eauto. Qed.
 Lemma lookup_succ_cons : forall A (E : env A) e x,
   lookup (S x) (e :: E) = lookup x E.
 Proof. eauto. Qed.
+
+Global Opaque empty.
