@@ -1,9 +1,36 @@
-# L³ verified
+Linear Lambda Calculus using DbLib
+====
 
-Mechanical formalisation of *The Linear Language with Locations, L³*.
+This is a mechanical formalisation of a (Purely) Linear Lambda Calculus using the Coq theorem prover.
 
-Completed as part of my honours thesis in computer science at UNSW.
+It makes use of François Pottier's [DbLib][dblib] for de Bruijn indices.
 
-## Proof Checking
+I completed this formalisation as part of my honours thesis in computer science at UNSW.
 
-Tested using Coq 8.4, specifically 8.4pl5.
+## Source Layout
+
++ DbLib - my fork of DbLib with a few minor changes (lowering added)
++ Linear - a collection of universal definitions about context splitting
++ Syntax.v - types, terms and substitution for PLLC
++ Typing.v - typing judgements for PLLC
++ SmallStepSemantics.v - small-step operational semantics for PLLC
++ Progress.v - proof of type soundness
++ Subst.v - proof of the substitution lemma for PLLC
++ Preservation.v - proof of type preservation, relying on the substitution lemma
++ Soundness.v - proof of soundness, relying on progress and preservation
+
+## Dependencies
+
+* [Coq v8.4][coq-84]. I've tested with 8.4pl5 specifically.
+
+## Build Instructions
+
+```
+$ git clone --recursive https://github.com/michaelsproul/dblib-linear
+$ make
+```
+
+The recursive Git clone just ensures that DbLib gets pulled in.
+
+[dblib]: https://github.com/fpottier/dblib
+[coq-84]: https://coq.inria.fr/coq-84
