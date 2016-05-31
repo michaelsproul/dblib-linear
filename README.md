@@ -21,7 +21,7 @@ I completed this formalisation as part of my honours thesis in computer science 
 
 ## Dependencies
 
-* [Coq v8.4][coq-84]. I've tested with 8.4pl5 specifically.
+* [Coq v8.4][coq-84]. I've tested with 8.4pl5 specifically, on OS X.
 
 ## Build Instructions
 
