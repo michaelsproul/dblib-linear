@@ -5,7 +5,7 @@ Require Export Compare_dec.
 
 (* Temporary extensions to DbLib *)
 (* These lemmas are the same as ones upstream except that they use raw_insert rather than insert
- * Therefore it's "relatively safe" to admit them as axioms.
+ * Therefore it's "relatively safe" to admit them as axioms (I'm almost certain they're true).
 *)
 Lemma raw_insert_eq_insert_1:
   forall A x a1 a2 (e1 e2 : env A),

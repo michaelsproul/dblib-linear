@@ -2,12 +2,6 @@ Require Import DbLib.DeBruijn.
 Require Import DbLib.DblibTactics.
 Require Export Linear.Basics.
 
-(* We use natural numbers as De Bruijn indices to denote term and location variables. *)
-Inductive name := Name : nat -> name.
-
-(* No distinction between location variables and constants. *)
-Inductive loc := Loc : nat -> loc.
-
 Inductive ty : Set :=
   | TyUnit
   | TyPrim : String.string -> ty

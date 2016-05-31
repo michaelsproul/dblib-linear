@@ -1,22 +1,8 @@
-(*
-Require Import DbLib.Environments.
-Require Import List.
-Require Import Typing.
-Require Import Syntax.
-Require Import Empty.
-Require Import Context.
-Require Import Environment.
-Require Import DbLib.DeBruijn.
-Require Import Arith.
-Require Import DbLibExt.
-Require Import InsertNone.
-Import ListNotations.
-*)
 Require Export DbLib.DeBruijn.
 Require Export LLC.Syntax.
 Require Export LLC.Typing.
 Require Export Linear.Context.
-Require Export Linear.InsertNone.
+Require Export Linear.Insert.
 Require Export Arith.
 
 (* For dependent induction we require "John Major" heterogeneous equality *)
@@ -98,7 +84,6 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
       subst...
 Qed.
 
-(* Lang-specific *)
 (* Required by the lambda abstraction case in the substitution lemma *)
 Lemma typing_insert_none : forall E e t x,
   E |- e ~: t ->
@@ -135,7 +120,7 @@ Proof with (eauto using insert_none_is_empty_inversion with linear).
     simpl.
     destruct (le_gt_dec x n).
     SCase "x <= n".
-      (* FIXME: naming is a pain here *)
+      (* NOTE: naming is a pain here *)
       inversion WT; subst.
       rename E0 into E1.
       rename E into E2.
@@ -195,9 +180,10 @@ Lemma substitution: forall E2 e2 t1 t2 x,
 Proof with (eauto using typing_insert_none, typing_insert_none_subst,
             split_rotate  with linear).
   intros E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
+  (* NOTE: There are some nasty references to generated names here,
+     because dependent induction doesn't take an `as` clause *)
   dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using empty_insert_contra].
   Case "Var".
-    (* XXX: naming of x is weird here *)
     apply empty_insert_injective in x...
     destruct x as [XEq [TEq E2Eq]].
     subst.
@@ -206,7 +192,6 @@ Proof with (eauto using typing_insert_none, typing_insert_none_subst,
     subst...
   Case "Abs".
     constructor.
-    (* XXX: Bug (?) in error reporting - can't specify E0 *)
     eapply IHWT2 with (t3 := t1) (E1 := (None :: E1)).
     SCase "inserts are equal". insert_insert.
     SCase "e1 well-typed under shifting".

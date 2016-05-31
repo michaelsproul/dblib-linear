@@ -2,7 +2,8 @@ Require Export DbLib.Environments.
 Require Export Linear.Empty.
 Require Export Linear.DbLibExt.
 
-(* Context splitting similar to Liam OConnor's approach *)
+(* Context splitting similar to Liam OConnor and Edsko de Vries' approaches *)
+(* Liam: http://liamoc.net/posts/2014-01-01-context-split.html *)
 Inductive split_single {A} : option A -> option A -> option A -> Prop :=
   | split_none : split_single None None None
   | split_left (v : A) : split_single (Some v) (Some v) None

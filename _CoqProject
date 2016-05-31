@@ -8,7 +8,7 @@ Linear/DbLibExt.v
 Linear/Repeat.v
 Linear/Empty.v
 Linear/Context.v
-Linear/InsertNone.v
+Linear/Insert.v
 Syntax.v
 Typing.v
 SmallStepSemantics.v

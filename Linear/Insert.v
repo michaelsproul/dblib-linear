@@ -1,21 +1,7 @@
-(* Lemmas about inserting None into a typing context *)
-(*
-Require Import DbLib.Environments.
-Require Import List.
-Require Import Typing.
-Require Import Syntax.
-Require Import Empty.
-Require Import Context.
-Require Import Environment.
-Require Import DbLib.DeBruijn.
-Require Import Arith.
-Require Import DbLibExt.
-Import ListNotations.
-*)
+(* Lemmas about inserting values into typing contexts and splitting them *)
+
 Require Export Linear.Context.
 
-(* Universal *)
-(* insert/repeat *)
 Lemma insert_none_def : forall A x (E : env A),
   x >= length E ->
   raw_insert x None E = E ++ repeat (S (x - length E)) None.
@@ -36,8 +22,6 @@ Proof with (simpl; eboom).
       replace (x' - 0) with x'; try omega...
 Qed.
 
-(* Universal *)
-(* insert/empty *)
 Lemma insert_none_is_empty : forall A (E : env A) E' x,
   is_empty E ->
   raw_insert x None E = E' ->
@@ -60,8 +44,6 @@ Qed.
 
 Hint Resolve insert_none_is_empty : linear.
 
-(* Universal *)
-(* insert/empty *)
 Lemma insert_none_is_empty_inversion : forall A (E : env A) x,
   is_empty (raw_insert x None E) -> is_empty E.
 Proof with eboom.
@@ -76,10 +58,6 @@ Proof with eboom.
     destruct E as [|e E']...
 Qed.
 
-(* Hint Resolve insert_none_is_empty_inversion : linear. *)
-
-(* Universal *)
-(* insert/split *)
 Lemma insert_none_split : forall A (E : env A) E1 E2 x,
   context_split E E1 E2 ->
   context_split (raw_insert x None E) (raw_insert x None E1) (raw_insert x None E2).
@@ -97,8 +75,7 @@ Proof with eboom.
     inversion Split as [|E' E1' E2']...
 Qed.
 
-(* Universal *)
-(* NOT USED *)
+(* Note: this lemma isn't used by PLLC *)
 Lemma split_none_head : forall A (E : env A) E1 E2,
   context_split (None :: E) E1 E2 ->
   exists E1' E2', E1 = None :: E1' /\ E2 = None :: E2'.
@@ -107,9 +84,7 @@ Proof with eboom.
   inversion Split; inversion SplitElem; subst...
 Qed.
 
-(* Universal *)
-(* NOT USED, but nice to have *)
-(* insert/split *)
+(* Not used by PLLC, but nice to have *)
 Lemma split_insert_none_left_lookup : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   lookup x E1 = None.
@@ -129,8 +104,7 @@ Proof with eboom.
     inversion Split; inversion SplitElem; subst...
 Qed.
 
-(* Universal *)
-(* NOT USED *)
+(* Not used, as above *)
 Lemma split_insert_none_right_lookup : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   lookup x E2 = None.
@@ -138,8 +112,6 @@ Proof.
   eauto using split_insert_none_left_lookup, split_commute.
 Qed.
 
-(* Universal *)
-(* insert/split *)
 Lemma split_app_single : forall A (E : env A) E1 E2,
   context_split (E ++ [None]) E1 E2 ->
   exists E1' E2', E1 = E1' ++ [None] /\ E2 = E2' ++ [None] /\ context_split E E1' E2'.
@@ -173,8 +145,6 @@ Proof.
       eboom.
 Qed. (* NOTE: benefits of split_single demonstrated here *)
 
-(* Universal *)
-(* insert/split *)
 Lemma split_app : forall A (E : env A) E1 E2 n,
   context_split (E ++ repeat n None) E1 E2 ->
   exists E1' E2',
@@ -205,8 +175,6 @@ Proof with eboom.
     eboom.
 Qed.
 
-(* Universal *)
-(* insert/split *)
 Lemma insert_none_split_strip_none : forall A (E : env A) E1 E2 x,
   length E = length E1 ->
   length E = length E2 ->
@@ -230,9 +198,7 @@ Qed. (* NOTE: more massive benefits of split_single *)
 
 Hint Resolve insert_none_split_strip_none : linear.
 
-(* Universal *)
 (* This was one of the most difficult to prove *)
-(* insert/split *)
 Lemma insert_none_split_backwards : forall A (E : env A) E1 E2 x,
   context_split (raw_insert x None E) E1 E2 ->
   exists E1' E2',
