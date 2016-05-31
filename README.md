@@ -42,5 +42,10 @@ process at some point. For CoqIDE you can pass this flag via the command-line.
 $ coqide -R . LLC .
 ```
 
+## Warning
+
+I've admitted three lemmas that are slightly modified versions of ones in DbLib,
+but I'm fairly sure they're true... see `Linear/DbLibExt.v`
+
 [dblib]: https://github.com/fpottier/dblib
 [coq-84]: https://coq.inria.fr/coq-84
