@@ -1,10 +1,6 @@
-Require Import DbLib.Environments.
-
-Require Import Syntax.
-Require Import Util.
-Require Import Environment.
-Require Import List.
-Require Import Empty.
+Require Export DbLib.Environments.
+Require Export Linear.Empty.
+Require Export Linear.DbLibExt.
 
 (* Context splitting similar to Liam OConnor's approach *)
 Inductive split_single {A} : option A -> option A -> option A -> Prop :=
@@ -12,7 +8,7 @@ Inductive split_single {A} : option A -> option A -> option A -> Prop :=
   | split_left (v : A) : split_single (Some v) (Some v) None
   | split_right (v : A) : split_single (Some v) None (Some v).
 
-Hint Constructors split_single : l3.
+Hint Constructors split_single : linear.
 
 Inductive context_split {A} : env A -> env A -> env A -> Prop :=
   | split_nil : context_split nil nil nil
@@ -21,7 +17,7 @@ Inductive context_split {A} : env A -> env A -> env A -> Prop :=
       (SplitPre : context_split E E1 E2) :
       context_split (v :: E) (v1 :: E1) (v2 :: E2).
 
-Hint Constructors context_split : l3.
+Hint Constructors context_split : linear.
 
 (* Basic lemmas about context splitting *)
 
@@ -32,7 +28,7 @@ Proof with boom.
   induction Split...
 Qed.
 
-Hint Immediate split_single_commute : l3.
+Hint Immediate split_single_commute : linear.
 
 Lemma split_commute : forall A (E : env A) E1 E2,
   context_split E E1 E2 -> context_split E E2 E1.
@@ -42,7 +38,7 @@ Proof with boom.
 Qed.
 
 (* NB: split_commute can create loops, so we only apply it at most once using auto *)
-Hint Immediate split_commute : l3.
+Hint Immediate split_commute : linear.
 
 Lemma split_single_assoc : forall A (v v0 v1 v2 v12 : option A),
   split_single v v0 v12 ->
@@ -54,7 +50,7 @@ Proof.
   inversion Split12; inversion Split; eboom.
 Qed.
 
-Hint Resolve split_single_assoc : l3.
+Hint Resolve split_single_assoc : linear.
 
 Lemma split_assoc : forall A (E E0 E1 E2 E12 : env A),
   context_split E E0 E12 ->
@@ -74,7 +70,7 @@ Proof with eboom.
     assert (exists v01, split_single v v01 v2 /\ split_single v01 v0 v1) as [v01 [? ?]]...
 Qed.
 
-Hint Resolve split_assoc : l3.
+Hint Resolve split_assoc : linear.
 
 Lemma split_assoc_rev : forall A (E E0 E1 E2 E01 : env A),
   context_split E E01 E2 ->
@@ -85,7 +81,7 @@ Proof with eboom.
   assert (exists E21, context_split E E21 E0 /\ context_split E21 E2 E1) as [E21 [? ?]]...
 Qed.
 
-Hint Resolve split_assoc_rev : l3.
+Hint Resolve split_assoc_rev : linear.
 
 (* Draw a tree! *)
 Lemma split_rotate : forall A (E : env A) E0 E12 E1 E2,
@@ -122,7 +118,7 @@ Proof with eboom.
   inversion Split012; inversion Split12; eboom.
 Qed.
 
-Hint Resolve split_single_rotate : l3.
+Hint Resolve split_single_rotate : linear.
 
 Lemma context_split_length1 : forall A (E : env A) E1 E2,
   context_split E E1 E2 ->
@@ -132,7 +128,7 @@ Proof with boom.
   induction Split; simpl...
 Qed.
 
-Hint Resolve context_split_length1 : l3.
+Hint Resolve context_split_length1 : linear.
 
 Lemma context_split_length1_x : forall A (E : env A) E1 E2 l,
   context_split E E1 E2 ->
@@ -181,6 +177,10 @@ Lemma split_single_right : forall A (v : option A) v1,
   v = v1.
 Proof. eauto using split_single_commute, split_single_left. Qed.
 
+(* ------------------------------- *)
+(* Context splitting and emptiness *)
+(* ------------------------------- *)
+
 Lemma split_all_left : forall A (E : env A) E1 E2,
   is_empty E2 ->
   context_split E E1 E2 ->
@@ -192,24 +192,13 @@ Proof with (eauto using split_single_left, f_equal).
   replace v1 with v...
 Qed.
 
-Hint Resolve split_all_left : l3.
+Hint Resolve split_all_left : linear.
 
 Lemma split_all_right : forall A (E : env A) E1 E2,
   is_empty E1 ->
   context_split E E1 E2 ->
   E = E2.
 Proof. eboom. Qed.
-
-(* XXX: This lemma is possibly useless, it's just faking a rewrite *)
-Lemma insert_zero_x : forall A o (E : env A) E1 E2,
-  context_split E (raw_insert 0 o E1) E2 ->
-  context_split E (o :: E1) E2.
-Proof with boom.
-  intros A P o E.
-  rewrite raw_insert_zero...
-Qed.
-
-(* Context splitting and emptyness *)
 
 Lemma split_empty : forall A (E : env A) E1 E2,
   is_empty E ->
@@ -232,7 +221,7 @@ Proof with eboom.
   apply split_empty in Split; destruct Split...
 Qed.
 
-Hint Immediate split_empty_left : l3.
+Hint Immediate split_empty_left : linear.
 
 Lemma split_empty_right : forall A (E : env A) E1 E2,
   is_empty E ->
@@ -240,13 +229,13 @@ Lemma split_empty_right : forall A (E : env A) E1 E2,
   is_empty E2.
 Proof. eauto using split_empty_left, split_commute. Qed.
 
-Hint Immediate split_empty_right : l3.
+Hint Immediate split_empty_right : linear.
 
-(* Examples *)
+(* Example: *)
 Example context_split_ex1 : exists E,
-  context_split (insert 0 (TyPrim "bool") nil) (insert 0 (TyPrim "bool") nil) E /\
+  context_split (insert 0 "bool" []) (insert 0 "bool" []) E /\
   is_empty E.
 Proof with eboom.
-  exists (None :: nil)...
+  exists [None]...
   rewrite raw_insert_zero...
 Qed.

@@ -1,17 +1,5 @@
-Require Import DbLib.Environments.
-Require Import List.
-Require Import Typing.
-Require Import Syntax.
-Require Import Empty.
-Require Import Context.
-Require Import Environment.
-Require Import DbLib.DeBruijn.
-Require Import Arith.
-Require Import DbLibExt.
-Require Import InsertNone.
-Require Import Subst.
-Require Import SmallStepSemantics.
-Import ListNotations.
+Require Export LLC.Subst.
+Require Export SmallStepSemantics.
 
 Theorem preservation : forall E e e' t,
   is_empty E ->

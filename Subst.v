@@ -1,3 +1,4 @@
+(*
 Require Import DbLib.Environments.
 Require Import List.
 Require Import Typing.
@@ -10,6 +11,16 @@ Require Import Arith.
 Require Import DbLibExt.
 Require Import InsertNone.
 Import ListNotations.
+*)
+Require Export DbLib.DeBruijn.
+Require Export LLC.Syntax.
+Require Export LLC.Typing.
+Require Export Linear.Context.
+Require Export Linear.InsertNone.
+Require Export Arith.
+
+(* For dependent induction we require "John Major" heterogeneous equality *)
+Require Export Coq.Program.Equality.
 
 Lemma unshift_Abs : forall x t e, unshift x (TAbs t e) = TAbs t (unshift (S x) e).
 Proof with eauto.
@@ -28,7 +39,7 @@ Lemma subst_unshift : forall x e v,
   ~ contains_var x e ->
   subst v x e = unshift x e.
 Proof with (eauto using f_equal, not_contains_Abs,
-                        not_contains_App1, not_contains_App2 with l3).
+                        not_contains_App1, not_contains_App2 with linear).
   Local Transparent lower.
   intros x e v NotContains.
   generalize dependent x.
@@ -87,6 +98,74 @@ Proof with (eauto using raw_insert_eq_insert_1, le_0_n).
       subst...
 Qed.
 
+(* Lang-specific *)
+(* Required by the lambda abstraction case in the substitution lemma *)
+Lemma typing_insert_none : forall E e t x,
+  E |- e ~: t ->
+  raw_insert x None E |- shift x e ~: t.
+Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_split with linear).
+  intros E e t x WT.
+  generalize dependent x.
+  induction WT; intros y; simpl_lift_goal...
+  Case "Var".
+    destruct (le_lt_dec y x); lift_idx.
+    SCase "y <= x".
+      rewrite insert_insert...
+    SCase "y > x".
+      destruct y as [|y']; try solve by inversion...
+      rewrite <- insert_insert...
+  Case "Abs".
+    constructor.
+    rewrite insert_insert...
+Qed.
+
+(* Lang-specific *)
+Lemma typing_insert_none_reverse : forall E e t x,
+  raw_insert x None E |- e ~: t ->
+  E |- unshift x e ~: t.
+Proof with (eauto using insert_none_is_empty_inversion with linear).
+  Transparent lower.
+  intros E e t x WT.
+  generalize dependent x.
+  generalize dependent t.
+  generalize dependent E.
+  induction e; try solve [intros; simpl; inversion WT; subst; eauto using insert_none_is_empty_inversion with linear].
+  Case "TVar".
+    intros.
+    simpl.
+    destruct (le_gt_dec x n).
+    SCase "x <= n".
+      (* FIXME: naming is a pain here *)
+      inversion WT; subst.
+      rename E0 into E1.
+      rename E into E2.
+      symmetry in H0.
+      apply raw_insert_swap in H0...
+      decompose record H0.
+      subst...
+    SCase "x > n".
+      inversion WT; subst.
+      apply raw_insert_swap in H0.
+      decompose record H0.
+      subst...
+      omega.
+  Case "TAbs".
+    intros.
+    simpl_lower_goal.
+    inversion WT; subst.
+    econstructor.
+    apply IHe.
+    rewrite<- insert_insert...
+    omega.
+  Case "TApp".
+    intros.
+    simpl_lower_goal.
+    inversion WT; subst.
+    apply insert_none_split_backwards in AppPreSplit.
+    destruct AppPreSplit as [E1' [E2' [? [? [? [? ?]]]]]].
+    subst...
+Qed.
+
 Lemma typing_insert_none_subst : forall E e x junk t,
   raw_insert x None E |- e ~: t ->
   E |- subst junk x e ~: t.
@@ -106,74 +185,7 @@ Proof.
   intros. destruct l; try solve by inversion; reflexivity.
 Qed.
 
-Hint Immediate length_zero_nil : l3.
-
-(* UNIVERSAL *)
-(* insert/split *)
-Lemma context_split_insert : forall A (E : env A) E1 E2 x t,
-  context_split (insert x t E) E1 E2 ->
-  (exists E1' E2',
-    E1 = insert x t E1' /\
-    E2 = raw_insert x None E2' /\
-    length E1' = length E /\
-    length E2' = length E /\
-    context_split E E1' E2'
-  ) \/
-  (exists E1' E2',
-    E1 = raw_insert x None E1' /\
-    E2 = insert x t E2' /\
-    length E1' = length E /\
-    length E2' = length E /\
-    context_split E E1' E2'
-  ).
-Proof with eboom.
-  intros A E E1 E2 x t Split.
-  generalize dependent E.
-  generalize dependent E1.
-  generalize dependent E2.
-  induction x as [|x'].
-  Case "x = 0".
-    intros.
-    rewrite raw_insert_zero in Split.
-    inversion Split; subst.
-    inversion SplitElem; subst; [left | right];
-    eexists; eexists; repeat rewrite raw_insert_zero; repeat split...
-  Case "x = S x'".
-    intros.
-    rewrite raw_insert_successor in Split.
-    destruct E as [|e E];
-    destruct E1 as [|e1 E1'];
-    destruct E2 as [|e2 E2']; try solve by inversion.
-    SCase "E = nil, E1 = e1 :: E1, E2 = e2 :: E2".
-      replace (lookup 0 (@nil (option ty))) with (@None ty) in Split...
-      simpl in *.
-      inversion Split; subst.
-      set (Intro := SplitPre).
-      apply IHx' in Intro...
-      destruct Intro as [IH | IH];
-        [left | right];
-        destruct IH as [E1'' [E2'' [? [? [? [? ?]]]]]];
-        assert (E1'' = []); eboom;
-        assert (E2'' = []); eboom;
-        subst;
-        exists [], [];
-        repeat rewrite raw_insert_successor;
-        repeat rewrite lookup_zero_nil in *;
-        inversion SplitElem...
-  SCase "all cons".
-    rewrite lookup_zero_cons in Split.
-    simpl in Split.
-    inversion Split; subst.
-    set (Intro := SplitPre).
-    apply IHx' in Intro.
-    destruct Intro as [IH | IH];
-      [left | right];
-      destruct IH as [E1'' [E2'' [? [? [? [? ?]]]]]];
-      exists (e1 :: E1''), (e2 :: E2'');
-      repeat rewrite raw_insert_successor in *;
-      repeat rewrite lookup_zero_cons in *;
-      simpl; subst; repeat split...
-Qed.
+Hint Immediate length_zero_nil : linear.
 
 Lemma substitution: forall E2 e2 t1 t2 x,
   insert x t1 E2 |- e2 ~: t2 ->
@@ -181,7 +193,7 @@ Lemma substitution: forall E2 e2 t1 t2 x,
   context_split E E1 E2 ->
   E |- (subst e1 x e2) ~: t2.
 Proof with (eauto using typing_insert_none, typing_insert_none_subst,
-            split_rotate  with l3).
+            split_rotate  with linear).
   intros E2 e2 t1 t2 x WT2 E E1 e1 WT1 Split.
   dependent induction WT2; simpl_subst_goal; try solve [exfalso; eauto using empty_insert_contra].
   Case "Var".

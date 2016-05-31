@@ -1,7 +1,3 @@
-Require Import Syntax.
-Require Import Typing.
-Require Import Empty.
-Require Import SmallStepSemantics.
 Require Import Progress.
 Require Import Preservation.
 
@@ -12,7 +8,7 @@ Inductive multi_step : term -> term -> Prop :=
       (MultiStep : multi_step e' e'') :
       multi_step e e''.
 
-Hint Constructors multi_step : l3.
+Hint Constructors multi_step : linear.
 
 Corollary soundness : forall E e e' t,
   is_empty E ->

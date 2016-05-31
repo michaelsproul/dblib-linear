@@ -1,4 +1,5 @@
 (* Unused functions relating to the removal of values from environments *)
+(* Ultimately, this approach was found to be highly annoying to reason about *)
 Require Import DbLib.Environments.
 Require Import List.
 Require Import Syntax.

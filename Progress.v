@@ -1,9 +1,7 @@
-Require Import Typing.
-Require Import Syntax.
+Require Import LLC.Typing.
+Require Import LLC.Syntax.
 Require Import SmallStepSemantics.
-Require Import Empty.
-Require Export Context.
-Require Import Environment.
+Require Import Linear.Context.
 
 Lemma step_app1_x : forall e1 e2,
   (exists e', step e1 e') ->
@@ -13,7 +11,7 @@ Proof with eboom.
   decompose record Step1...
 Qed.
 
-Hint Resolve step_app1_x : l3.
+Hint Resolve step_app1_x : linear.
 
 Lemma fun_value_is_abs : forall E e t1 t2,
   is_empty E ->
@@ -24,13 +22,13 @@ Proof.
   intros E e t1 t2 Empty WT Val.
   destruct e; try (solve by inversion).
   Case "e is a variable, impossible with an empty context".
-    inversion WT; subst; exfalso; eauto 2 with l3.
+    inversion WT; subst; exfalso; eauto 2 with linear.
   Case "e is a lambda abstraction, good!".
     inversion WT; subst.
     eauto.
 Qed.
 
-Hint Resolve fun_value_is_abs : l3.
+Hint Resolve fun_value_is_abs : linear.
 
 Lemma value_app1_x : forall E1 e1 e2 t1 t2,
   is_empty E1 ->
@@ -48,7 +46,7 @@ Proof with eboom.
     subst e1...
 Qed.
 
-Hint Resolve value_app1_x : l3.
+Hint Resolve value_app1_x : linear.
 
 (* Proof of progress! *)
 Theorem progress : forall E e t,

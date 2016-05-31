@@ -1,15 +1,13 @@
-Require Import List.
-Require Import DbLib.Environments.
-
-Require Import Syntax.
-Require Import Environment.
+Require Export DbLib.Environments.
+Require Export Basics.
+Require Export Repeat.
 
 (* Predicate for contexts that states their emptyness (DbLib's definition is too limiting) *)
 Inductive is_empty {A} : env A -> Prop :=
   | is_empty_nil : is_empty nil
   | is_empty_cons E (EmptyTail : is_empty E) : is_empty (None :: E).
 
-Hint Constructors is_empty : l3.
+Hint Constructors is_empty : linear.
 
 (* Indirection lemma for use with automation *)
 Lemma is_empty_x : forall A (e : option A) E,
@@ -18,9 +16,9 @@ Proof.
   intros; subst; boom.
 Qed.
 
-Hint Resolve is_empty_x : l3.
+Hint Resolve is_empty_x : linear.
 
-(* Emptyness in terms of repeat *)
+(* Emptiness in terms of repeat *)
 Lemma empty_repeat : forall A (E : env A),
   is_empty E ->
   E = repeat (length E) None.
@@ -36,7 +34,7 @@ Proof with (simpl; boom).
   induction n...
 Qed.
 
-Example is_empty_ex1 : is_empty (None :: None :: nil : env ty).
+Example is_empty_ex1 : is_empty ([None; None] : env nat).
 Proof. boom. Qed.
 
 Lemma empty_tl : forall A (E : env A),
@@ -48,7 +46,7 @@ Proof.
   inversion Empty; subst; auto.
 Qed.
 
-Hint Resolve empty_tl : l3.
+Hint Resolve empty_tl : linear.
 
 Lemma empty_lookup : forall A x (E : env A),
   is_empty E ->
@@ -65,7 +63,7 @@ Proof.
     eboom.
 Qed.
 
-Hint Resolve empty_lookup : l3.
+Hint Resolve empty_lookup : linear.
 
 Lemma empty_lookup_x : forall A x e (E : env A),
   is_empty E ->
@@ -75,7 +73,7 @@ Proof.
   intros; subst e; auto using empty_lookup.
 Qed.
 
-Hint Resolve empty_lookup_x : l3.
+Hint Resolve empty_lookup_x : linear.
 
 Lemma empty_lookup_contra : forall A x (E : env A) t,
   is_empty E ->
@@ -88,7 +86,7 @@ Proof.
   assumption.
 Qed.
 
-Hint Resolve empty_lookup_contra : l3.
+Hint Resolve empty_lookup_contra : linear.
 
 Lemma empty_insert_contra : forall A x (t : A) E E',
   E = insert x t E' ->
@@ -114,13 +112,19 @@ Proof with eauto.
       inversion Empty...
 Qed.
 
-Hint Resolve empty_insert_contra : l3.
+Hint Resolve empty_insert_contra : linear.
+
+(* Helper lemma for empty_insert_injective *)
+Lemma list_head_eq : forall A (h1 : A) h2 t1 t2,
+  h1 :: t1 = h2 :: t2 ->
+  h1 = h2.
+Proof. congruence. Qed.
 
 Lemma empty_insert_injective : forall A x1 x2 (t1 : A) t2 E1 E2,
   is_empty E1 ->
   insert x1 t1 E1 = insert x2 t2 E2 ->
   x1 = x2 /\ t1 = t2 /\ is_empty E2.
-Proof with (eauto using list_head_eq with l3).
+Proof with (eauto using list_head_eq with linear).
   intros A x1 x2 t1 t2 E1 E2 Empty Insert.
   generalize dependent x2.
   generalize dependent E1.
@@ -140,4 +144,3 @@ Proof with (eauto using list_head_eq with l3).
     SCase "E2 = e2 :: E2'".
       repeat split...
 Qed.
-

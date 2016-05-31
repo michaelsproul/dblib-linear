@@ -1,4 +1,4 @@
-Require Import Syntax.
+Require Import LLC.Syntax.
 Require Import DbLib.DeBruijn.
 
 (* e ==> e' *)
@@ -15,4 +15,4 @@ Inductive step : term -> term -> Prop :=
       (App2Step : step e2 e2') :
       step (TApp v1 e2) (TApp v1 e2').
 
-Hint Constructors step : l3.
+Hint Constructors step : linear.

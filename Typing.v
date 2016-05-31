@@ -1,10 +1,5 @@
-Require Import DbLib.DeBruijn.
-Require Import DbLib.Environments.
-Require Import List.
-Require Import Syntax.
-Require Import Environment.
-Require Import Context.
-Require Import Empty.
+Require Import LLC.Syntax.
+Require Import Linear.Context.
 
 Reserved Notation "E '|-' e '~:' t" (at level 40).
 
@@ -29,7 +24,7 @@ Inductive has_type : (env ty) -> term -> ty -> Prop :=
 
 where "E '|-' e '~:' t" := (has_type E e t).
 
-Hint Constructors has_type : l3.
+Hint Constructors has_type : linear.
 
 (* Predicate for describing whether a variable is contained in a term. *)
 Inductive contains_var : nat -> term -> Prop :=
@@ -41,7 +36,7 @@ Inductive contains_var : nat -> term -> Prop :=
   | ContainsApp2 n e1 e2 (CVApp2Pre : contains_var n e2)
       : contains_var n (TApp e1 e2).
 
-Hint Constructors contains_var : l3.
+Hint Constructors contains_var : linear.
 
 Example contains_var_ex1 : contains_var 0 (TAbs (TyPrim "bool") (TVar 1)).
 Proof. boom. Qed.
@@ -61,6 +56,6 @@ Lemma not_contains_App2 : forall x e1 e2,
   ~ contains_var x e2.
 Proof. boom. Qed.
 
-Hint Resolve not_contains_Abs : l3.
-Hint Resolve not_contains_App1 : l3.
-Hint Resolve not_contains_App2 : l3.
+Hint Resolve not_contains_Abs : linear.
+Hint Resolve not_contains_App1 : linear.
+Hint Resolve not_contains_App2 : linear.

@@ -1,8 +1,6 @@
 Require Import DbLib.DeBruijn.
-Require Import DbLib.Environments.
 Require Import DbLib.DblibTactics.
-
-Require Export Util.
+Require Export Linear.Basics.
 
 (* We use natural numbers as De Bruijn indices to denote term and location variables. *)
 Inductive name := Name : nat -> name.
@@ -13,59 +11,21 @@ Inductive loc := Loc : nat -> loc.
 Inductive ty : Set :=
   | TyUnit
   | TyPrim : String.string -> ty
-  (*
-  | TyProduct : ty -> ty -> ty
-  *)
   | TyFun : ty -> ty -> ty
-  (*
-  | TyBang : ty -> ty
-  | TyPtr : loc -> ty
-  | TyCap : loc -> ty -> ty
-  | TyForAll : ty -> ty
-  | TyEx : ty -> ty
-  *)
 .
 
-Hint Constructors ty : l3.
+Hint Constructors ty : linear.
 
-(* Terms, or 'expressions' in L3 parlance. *)
+(* Terms, or 'expressions' *)
 Inductive term : Set :=
   | TUnit
-  (* () *)
   | TPrim : String.string -> term
-  (* let () = e1 in e2 *)
-  (*
-  | TLetUnit : term -> term -> term
-  (* (x, y) *)
-  | TPair : term -> term -> term
-  (* let (x1, x2) = e1 in e2 *)
-  | TLetPair : name -> name -> term -> term
-  *)
-  (* FIXME: Would be nice to use name type, but prove_*_traverse tactics choke. *)
   | TVar : nat -> term
-  (* (\0: tau. e *)
   | TAbs : ty -> term -> term
   | TApp : term -> term -> term
-  (*
-  (* FIXME: Need a value bound here? *)
-  | TBang : term -> term
-  (* let !x = e1 in e2 *)
-  | TLetBang : name -> term -> term -> term
-  | TDupl : term -> term
-  | TDrop : term -> term
-  | TPtr : loc -> term
-  | TCap
-  | TNew : term -> term
-  | TFree : term -> term
-  | TSwap : term -> term -> term -> term
-  | TLocAbs : term -> term
-  | TLocApp : term -> loc -> term
-  (* let |p, x| = e1 in e2 *)
-  | TLetEx : loc -> name -> term -> term -> term
-  *)
 .
 
-Hint Constructors term : l3.
+Hint Constructors term : linear.
 
 Inductive value : term -> Prop :=
   | VUnit : value TUnit
@@ -74,7 +34,7 @@ Inductive value : term -> Prop :=
   | VAbs : forall t e, value (TAbs t e)
 .
 
-Hint Constructors value : l3.
+Hint Constructors value : linear.
 
 
 (* Substitution via DbLib *)
