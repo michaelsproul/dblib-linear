@@ -32,5 +32,15 @@ $ make
 
 The recursive Git clone just ensures that DbLib gets pulled in.
 
+## Stepping Through Interactively
+
+Once you've run `make` you should be able to step through any individual file using CoqIDE or
+an editor of your choice. You just have to make sure to pass the `-R . LLC` option to the Coq
+process at some point. For CoqIDE you can pass this flag via the command-line.
+
+```
+$ coqide -R . LLC .
+```
+
 [dblib]: https://github.com/fpottier/dblib
 [coq-84]: https://coq.inria.fr/coq-84
