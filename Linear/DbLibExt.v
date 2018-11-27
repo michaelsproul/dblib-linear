@@ -11,7 +11,19 @@ Lemma raw_insert_eq_insert_1:
   forall A x a1 a2 (e1 e2 : env A),
   raw_insert x a1 e1 = raw_insert x a2 e2 ->
   a1 = a2.
-Proof. admit. Qed.
+Proof with eauto.
+  induction x.
+  Case "x = 0".
+    intros a1 a2 e1 e2 RI.
+    rewrite raw_insert_zero in RI.
+    rewrite raw_insert_zero in RI.
+    inversion RI...
+  Case "x = Suc _".
+    intros a1 a2 e1 e2 RI.
+    rewrite raw_insert_successor in RI.
+    rewrite raw_insert_successor in RI.
+    inversion RI...
+Qed.
 
 Lemma raw_insert_eq_insert_3:
   forall A x1 x2 a1 a2 (e1 e2 : env A),
