@@ -25,19 +25,6 @@ Proof with eauto.
     inversion RI...
 Qed.
 
-Lemma raw_insert_eq_insert_3:
-  forall A x1 x2 a1 a2 (e1 e2 : env A),
-  raw_insert x1 a1 e1 = raw_insert x2 a2 e2 ->
-  x1 <> x2 ->
-  exists e y1 y2,
-  e1 = raw_insert y1 a2 e /\
-  e2 = raw_insert y2 a1 e /\
-  shift x1 y1 = x2 /\
-  y2 = (if le_gt_dec x1 y1 then x1 else x1 - 1).
-Proof.
-  admit.
-Qed.
-
 Lemma raw_insert_swap : forall A (E1 : env A) E2 x1 x2 o1 o2,
   raw_insert x1 o1 E1 = raw_insert x2 o2 E2 ->
   x1 <= x2 ->
