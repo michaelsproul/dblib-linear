@@ -104,6 +104,130 @@ Proof with (eauto using le_0_n, lt_n_Sm_le, insert_none_is_empty, insert_none_sp
     rewrite insert_insert...
 Qed.
 
+(* TODO: clean this up *)
+Lemma insert_magic : forall A (E1 : env A) E2 x n t,
+  is_empty E1 ->
+  insert n t E1 = raw_insert x None E2 ->
+  x <= n ->
+  exists E0,
+    E2 = insert (n - 1) t E0 /\
+    is_empty E0.
+Proof.
+  intros.
+  generalize dependent E1.
+  generalize dependent E2.
+  generalize dependent x.
+  induction n as [|n'].
+  Case "n = 0".
+    intros.
+    destruct x; solve by inversion.
+  Case "n = Suc _".
+    intros.
+    repeat (rewrite raw_insert_successor in *).
+    simpl.
+    destruct x.
+    repeat (rewrite raw_insert_zero in *).
+    inversion H0.
+    exists (tl E1).
+    assert (n' - 0 = n') as Wat.
+      omega.
+    rewrite Wat.
+    split; [reflexivity | ].
+    eauto using empty_tl.
+    (* done *)
+    rewrite raw_insert_successor in *.
+    inversion H0.
+    apply IHn' in H4.
+    Focus 2. omega.
+    Focus 2. eauto using empty_tl.
+    decompose record H4.
+    exists (None :: x0).
+    destruct n'.
+    Focus 2.
+      simpl.
+      rewrite raw_insert_successor.
+      simpl.
+    rewrite lookup_zero_cons.
+    split.
+    destruct E2 as [|thing E2'].
+      exfalso...
+      eapply empty_insert_contra.
+      apply H5.
+      eauto using is_empty_nil.
+      simpl in *.
+      rewrite <- minus_n_O in H5.
+      assert (thing = None).
+      rewrite lookup_zero_cons in H3.
+      (* is true *)
+      eboom.
+      subst. reflexivity.
+      eauto using is_empty_cons.
+      (* done *)
+    simpl.
+    simpl in *.
+    exfalso.
+    inversion H0.
+    destruct x.
+    repeat (rewrite raw_insert_zero in *).
+    solve by inversion.
+    inversion H1.
+    inversion H9.
+Qed.
+
+(* TODO: cleanup *)
+Lemma insert_magic' : forall A (E1 : env A) E2 x n t,
+  is_empty E1 ->
+  insert n t E1 = raw_insert x None E2 ->
+  x >= n ->
+  exists E0,
+    E2 = insert n t E0 /\
+    is_empty E0.
+Proof with eauto.
+  intros.
+  generalize dependent E1.
+  generalize dependent E2.
+  generalize dependent n.
+  induction x as [|x'].
+  Case "x = 0".
+    intros.
+    destruct n; solve by inversion.
+  Case "x = Suc _".
+    intros.
+    rewrite raw_insert_successor in *.
+    destruct n.
+    SCase "n = 0".
+      rewrite raw_insert_zero in *.
+      inversion H0.
+      exists (tl E2).
+      rewrite raw_insert_zero.
+      split.
+      destruct E2. solve by inversion.
+      rewrite lookup_zero_cons in *.
+      subst...
+      (* Is empty (tl E2) *)
+      inversion H0.
+      subst.
+      eapply insert_none_is_empty_inversion...
+    rewrite raw_insert_successor in *.
+    inversion H0.
+    assert (x' >= n).
+      omega.
+    apply IHx' in H4.
+    decompose record H4.
+    exists (lookup 0 E2 :: x).
+    split.
+    rewrite raw_insert_successor.
+    simpl.
+    destruct E2 as [|t2 E2'].
+    exfalso.
+    simpl in *.
+    eboom. (* slow *)
+    eboom.
+    eboom.
+    eboom.
+  eboom.
+Qed.
+
 (* Lang-specific *)
 Lemma typing_insert_none_reverse : forall E e t x,
   raw_insert x None E |- e ~: t ->
@@ -124,15 +248,15 @@ Proof with (eauto using insert_none_is_empty_inversion with linear).
       inversion WT; subst.
       rename E0 into E1.
       rename E into E2.
-      symmetry in H0.
-      apply raw_insert_swap in H0...
+      apply insert_magic in H0...
       decompose record H0.
       subst...
     SCase "x > n".
       inversion WT; subst.
-      apply raw_insert_swap in H0.
+      apply insert_magic' in H0.
       decompose record H0.
       subst...
+      eboom.
       omega.
   Case "TAbs".
     intros.
